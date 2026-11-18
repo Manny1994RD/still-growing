@@ -2,7 +2,10 @@ import Constants from "expo-constants";
 import { Platform } from "react-native";
 import { secure } from "./storage";
 import type {
+  Blessing,
   Category,
+  CircleResponse,
+  CircleSettings,
   CheckInResponse,
   Habit,
   HabitInput,
@@ -14,13 +17,16 @@ import type {
 } from "./types";
 
 const TOKEN_KEY = "still-growing.token";
+const SERVER_KEY = "still-growing.server";
 
 /**
- * API base URL. Set EXPO_PUBLIC_API_URL for real builds. In development it
- * falls back to port 4000 on the same machine that serves the app, so a
- * phone running Expo Go reaches the API on your computer automatically.
+ * Default API address. Set EXPO_PUBLIC_API_URL for real builds. In development
+ * it falls back to port 4000 on the machine serving the app, so a phone running
+ * Expo Go reaches the API on your computer automatically.
+ * Users can override it in the app ("Server" on the sign-in screen), so one
+ * build works with any self-hosted server.
  */
-function resolveBaseUrl(): string {
+function defaultBaseUrl(): string {
   const env = process.env.EXPO_PUBLIC_API_URL;
   if (env) return env.replace(/\/$/, "");
   if (Platform.OS === "web" && typeof window !== "undefined") {
@@ -30,7 +36,42 @@ function resolveBaseUrl(): string {
   return `http://${host ?? "localhost"}:4000`;
 }
 
-export const API_URL = resolveBaseUrl();
+export const DEFAULT_API_URL = defaultBaseUrl();
+let baseUrl = DEFAULT_API_URL;
+
+export function normalizeServerUrl(input: string): string {
+  let url = input.trim().replace(/\/+$/, "");
+  if (!/^https?:\/\//i.test(url)) url = `http://${url}`;
+  return url;
+}
+
+export const server = {
+  get url() {
+    return baseUrl;
+  },
+  async load() {
+    const saved = await secure.get(SERVER_KEY);
+    if (saved) baseUrl = saved;
+    return baseUrl;
+  },
+  /** Checks that the address answers like a Still Growing server, then saves it. */
+  async set(input: string) {
+    const url = normalizeServerUrl(input);
+    let ok = false;
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 6000);
+      const res = await fetch(`${url}/health`, { signal: controller.signal });
+      clearTimeout(timer);
+      ok = res.ok && (await res.json().catch(() => ({}))).ok === true;
+    } catch {}
+    if (!ok) throw new ApiError(`Couldn't reach a Still Growing server at ${url}`, 0);
+    baseUrl = url;
+    if (url === DEFAULT_API_URL) await secure.remove(SERVER_KEY);
+    else await secure.set(SERVER_KEY, url);
+    return url;
+  },
+};
 
 export class ApiError extends Error {
   constructor(
@@ -65,7 +106,7 @@ export const session = {
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   let res: Response;
   try {
-    res = await fetch(`${API_URL}${path}`, {
+    res = await fetch(`${baseUrl}${path}`, {
       method,
       headers: {
         ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
@@ -112,4 +153,22 @@ export const api = {
   reflect: (date: string, type: "evening" | "ping" | "missed_reason", answers: Record<string, string>) =>
     request("POST", "/reflections", { date, type, answers }),
   content: () => request<{ messages: Message[]; verses: Verse[] }>("GET", "/content"),
+
+  // Friends Circle
+  circle: (today: string) => request<CircleResponse>("GET", `/circle?today=${today}`),
+  circleSummary: () => request<{ unread: number; prayers_today: number; prayed_by: string[] }>("GET", "/circle/summary"),
+  circleSettings: (patch: Partial<CircleSettings>) => request<{ settings: CircleSettings }>("POST", "/circle/settings", patch),
+  blessings: () => request<{ blessings: Blessing[]; verses: Blessing[] }>("GET", "/circle/blessings"),
+  addFriend: (code: string) => request<{ status: "pending" | "accepted"; friend: { id: string; name: string } }>("POST", "/friends", { code }),
+  acceptFriend: (id: string) => request("POST", `/friends/${id}/accept`),
+  removeFriend: (id: string) => request<void>("DELETE", `/friends/${id}`),
+  blockFriend: (id: string) => request("POST", `/friends/${id}/block`),
+  encourage: (to: string, type: "prayer" | "message" | "verse", opts: { template_id?: string; text?: string } = {}) =>
+    request<{ status: string }>("POST", "/encouragements", { to, type, ...opts }),
+  markRead: () => request<void>("POST", "/encouragements/read"),
+  createPrayerRequest: (text: string) => request("POST", "/prayer-requests", { text }),
+  deletePrayerRequest: (id: string) => request<void>("DELETE", `/prayer-requests/${id}`),
+  prayFor: (id: string) => request("POST", `/prayer-requests/${id}/pray`),
+  report: (target_type: "user" | "encouragement" | "prayer_request", target_id: string, reason = "") =>
+    request("POST", "/reports", { target_type, target_id, reason }),
 };

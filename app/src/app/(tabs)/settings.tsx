@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Alert, Platform } from "react-native";
-import { API_URL, api } from "@/lib/api";
+import { api, server } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { isValidTime } from "@/lib/date";
 import { notificationsSupported, requestPermission } from "@/lib/notifications";
@@ -106,7 +106,7 @@ export default function Settings() {
       <Button title="Delete account" variant="danger" onPress={deleteAccount} />
       <Spacer h={space.xl} />
       <Txt v="small" muted center>
-        Still Growing 0.1 · {API_URL}
+        Still Growing 0.2 · {server.url}
       </Txt>
     </Screen>
   );

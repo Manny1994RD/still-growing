@@ -41,6 +41,7 @@ export default function TabsLayout() {
       <Tabs.Screen name="index" options={{ title: "Today", tabBarIcon: ({ color }) => <Icon name="sun" color={color} size={22} /> }} />
       <Tabs.Screen name="habits" options={{ title: "Habits", tabBarIcon: ({ color }) => <Icon name="list" color={color} size={22} /> }} />
       <Tabs.Screen name="growth" options={{ title: "Growth", tabBarIcon: ({ color }) => <Icon name="trending-up" color={color} size={22} /> }} />
+      <Tabs.Screen name="circle" options={{ title: "Circle", tabBarIcon: ({ color }) => <Icon name="users" color={color} size={22} /> }} />
       <Tabs.Screen name="settings" options={{ title: "You", tabBarIcon: ({ color }) => <Icon name="user" color={color} size={22} /> }} />
     </Tabs>
   );

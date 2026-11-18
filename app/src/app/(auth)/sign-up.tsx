@@ -2,6 +2,7 @@ import { useRouter } from "expo-router";
 import { useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { Button, ErrorText, Field, Header, IconButton, Screen, Spacer, Txt } from "@/ui/components";
+import { ServerPicker } from "@/ui/ServerPicker";
 import { space } from "@/ui/theme";
 
 export default function SignUp() {
@@ -40,6 +41,8 @@ export default function SignUp() {
       <Txt v="small" muted center>
         Your habits and reflections are private to you.
       </Txt>
+      <Spacer h={space.lg} />
+      <ServerPicker />
     </Screen>
   );
 }

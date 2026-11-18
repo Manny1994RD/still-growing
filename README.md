@@ -19,9 +19,11 @@ One codebase ships to **Android (APK/AAB)**, **iPhone (IPA)** and the **web**. A
 - **Growth:** faithfulness %, streaks, Growth Seasons (Seed → Sprout → Rooted → Fruitful → Overflowing), a 5-week calendar and whole-life balance by area.
 - **Evening reflection:** three private prompts to end the day with God.
 - **Share your growth** without revealing habit names. Freedom habits are never shared.
+- **Friends Circle** (optional, off by default): add friends by code, see each other's growth (season, streak, faithfulness, areas), send a prayer in one tap, blessings, verses and short notes, and share prayer requests. Habit names, reflections and Freedom habits are never shown. Includes a message filter, block, report, a "blessings only" setting and a gentle "could use encouragement" nudge that users opt into.
+- **Self-hosting friendly:** the server address can be changed inside the app, so one Android/iPhone build works with your own server.
 - **Clean monochrome design** with automatic light and dark mode.
 
-Planned next (see [docs/Product_Plan.pdf](docs/Product_Plan.pdf)): Friends Circle (send prayers and encouragement), prayer requests, weekly review, Spanish.
+Planned next (see [docs/Product_Plan.pdf](docs/Product_Plan.pdf)): push notifications for prayers received, weekly review, Spanish.
 
 ## Project layout
 
@@ -29,7 +31,8 @@ Planned next (see [docs/Product_Plan.pdf](docs/Product_Plan.pdf)): Friends Circl
 api/                 Node + TypeScript API (Hono), PostgreSQL
   migrations/        SQL schema (applied automatically on start)
   src/stats.ts       grace streaks, faithfulness, seasons (unit-tested)
-  src/content.ts     encouragement library + verses (WEB)
+  src/content.ts     encouragement library, blessings + verses (WEB)
+  src/circle.ts      Friends Circle routes
 app/                 Expo (React Native) app for Android, iOS and web
   src/app/           screens (Expo Router)
   src/ui/            design system (monochrome tokens, components)
@@ -48,8 +51,37 @@ docker compose up -d --build
 ```
 
 - Web app: http://localhost:8080
-- API: http://localhost:4000 (health check: `/health`)
+- API: http://localhost:8080/api (also on port 4000; health check: `/health`)
 - Data is kept in the `db-data` Docker volume.
+
+## Hosting on your own home server
+
+The phones and the web app never talk to the database directly. They call the **API**, and the API reads and writes Postgres on your server:
+
+```
+iPhone / Android / browser  ──HTTPS──▶  your server: web (nginx) ──/api──▶ API ──▶ Postgres
+```
+
+Run `docker compose up -d --build` on the server, then choose how phones reach it:
+
+| Option | Works from | Setup | Notes |
+|---|---|---|---|
+| **A. Home Wi-Fi only** | Your home network | None. Use `http://<server-ip>:8080/api` | Simplest. Doesn't work on cellular or away from home. |
+| **B. Cloudflare Tunnel** (recommended) | Anywhere | Free Cloudflare account + a domain (~$10/yr) | Real HTTPS, no router ports opened, home IP stays hidden. |
+| **C. Tailscale** | Anywhere, for people you invite | Free; each phone installs the Tailscale app | Private network. Good for family only. |
+
+**Option B, step by step:**
+1. In the Cloudflare dashboard go to Zero Trust → Networks → Tunnels → Create a tunnel, and copy its token.
+2. Add a public hostname (for example `growing.yourdomain.com`) pointing to `http://web:80`.
+3. Put the token in `.env` as `CLOUDFLARE_TUNNEL_TOKEN=...`
+4. Run `docker compose --profile tunnel up -d`
+5. In the app, tap **Server · Change** on the sign-in screen and enter `https://growing.yourdomain.com/api`, or bake it into the build by setting `EXPO_PUBLIC_API_URL` in `app/eas.json`.
+
+Back up your data with:
+
+```bash
+docker compose exec db pg_dump -U still_growing still_growing > backup.sql
+```
 
 ## Develop locally (no Docker needed)
 
@@ -73,7 +105,7 @@ cd app && npx tsc --noEmit
 
 Builds run in the cloud with Expo Application Services (EAS), so **no Mac is needed for the iPhone build**.
 
-1. Deploy the API somewhere public (any VPS with Docker works), then set `EXPO_PUBLIC_API_URL` in `app/eas.json` to its HTTPS URL.
+1. Set `EXPO_PUBLIC_API_URL` in `app/eas.json` to your server's API address (for example `https://growing.yourdomain.com/api`). Users can also change it later in the app.
 2. Run:
 
 ```bash
@@ -93,7 +125,8 @@ The iPhone build needs an Apple Developer account ($99/year). Google Play needs 
 |---|---|---|
 | `POSTGRES_PASSWORD` | `.env` | Database password |
 | `JWT_SECRET` | `.env` | Secret for login tokens (32+ characters) |
-| `PUBLIC_API_URL` | `.env` | API URL baked into the Docker web build |
+| `PUBLIC_API_URL` | `.env` | API URL baked into the Docker web build (`/api` by default) |
+| `CLOUDFLARE_TUNNEL_TOKEN` | `.env` | Optional tunnel for access from anywhere |
 | `CORS_ORIGIN` | `.env` | Allowed browser origins (`*` by default) |
 | `EXPO_PUBLIC_API_URL` | `app/eas.json` or shell | API URL for phone builds |
 
@@ -113,3 +146,9 @@ All routes except `/health` and `/auth/*` need `Authorization: Bearer <token>`.
 | GET | `/stats?today=YYYY-MM-DD` | Streaks, faithfulness, season, calendar |
 | GET, POST | `/reflections` | Evening reflections |
 | GET | `/content` | Message library (used for local reminders) |
+| GET | `/circle`, `/circle/summary` | Friends, requests, inbox, prayer requests |
+| POST | `/circle/settings` | Turn the Circle on or off, privacy options |
+| POST, DELETE | `/friends`, `/friends/:id`, `/friends/:id/accept`, `/friends/:id/block` | Add by code, accept, remove, block |
+| POST | `/encouragements`, `/encouragements/read` | Send a prayer, blessing, verse or note |
+| POST, DELETE | `/prayer-requests`, `/prayer-requests/:id/pray` | Prayer requests |
+| POST | `/reports` | Report a user or message |

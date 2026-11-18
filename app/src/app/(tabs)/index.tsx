@@ -59,6 +59,7 @@ export default function Today() {
   const [refreshing, setRefreshing] = useState(false);
   const [sheet, setSheet] = useState<TodayHabit | null>(null);
   const [reflectOpen, setReflectOpen] = useState(false);
+  const [circle, setCircle] = useState<{ unread: number; prayers_today: number; prayed_by: string[] } | null>(null);
   const today = localDate();
 
   const load = useCallback(async () => {
@@ -70,6 +71,7 @@ export default function Today() {
     } catch (e) {
       setError((e as Error).message);
     }
+    api.circleSummary().then(setCircle, () => setCircle(null));
   }, []);
 
   useFocusEffect(
@@ -157,6 +159,20 @@ export default function Today() {
             <Card>
               <Verse text={data.verse.text} refText={data.verse.ref} />
             </Card>
+          ) : null}
+
+          {circle && (circle.prayers_today > 0 || circle.unread > 0) ? (
+            <Pressable onPress={() => router.push("/circle")} style={{ marginTop: space.md }}>
+              <Card style={{ flexDirection: "row", alignItems: "center", gap: space.lg, paddingVertical: space.lg }}>
+                <Icon name="heart" />
+                <Txt style={{ flex: 1 }}>
+                  {circle.prayers_today > 0
+                    ? `${circle.prayed_by.slice(0, 2).join(" and ")}${circle.prayers_today > 2 ? " and others" : ""} prayed for you today`
+                    : `${circle.unread} new ${circle.unread === 1 ? "encouragement" : "encouragements"}`}
+                </Txt>
+                <Icon name="chevron-right" color={c.muted} />
+              </Card>
+            </Pressable>
           ) : null}
 
           <ErrorText>{error}</ErrorText>

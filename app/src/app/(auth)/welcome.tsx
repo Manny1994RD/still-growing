@@ -1,6 +1,7 @@
 import { useRouter } from "expo-router";
 import { View } from "react-native";
 import { Button, Screen, Spacer, Txt, Verse } from "@/ui/components";
+import { ServerPicker } from "@/ui/ServerPicker";
 import { space, useTheme } from "@/ui/theme";
 
 export default function Welcome() {
@@ -23,6 +24,7 @@ export default function Welcome() {
         <View style={{ gap: space.md }}>
           <Button title="Get started" onPress={() => router.push("/sign-up")} />
           <Button title="I already have an account" variant="ghost" onPress={() => router.push("/sign-in")} />
+          <ServerPicker />
         </View>
       </View>
     </Screen>

@@ -1,5 +1,11 @@
 name: still-growing
 
+# Everything is reachable through the web container on one address:
+#   http://<server>:8080        -> web app
+#   http://<server>:8080/api    -> API (point the phone apps here)
+# Optional: `docker compose --profile tunnel up -d` adds a Cloudflare Tunnel
+# so phones can reach it securely (HTTPS) from anywhere.
+
 services:
   db:
     image: postgres:17-alpine
@@ -26,6 +32,7 @@ services:
       DATABASE_URL: postgres://still_growing:${POSTGRES_PASSWORD}@db:5432/still_growing
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env (32+ characters)}
       CORS_ORIGIN: ${CORS_ORIGIN:-*}
+    # Direct API port (optional; the web container already proxies /api).
     ports:
       - "${API_PORT:-4000}:4000"
 
@@ -33,12 +40,26 @@ services:
     build:
       context: ./app
       args:
-        EXPO_PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:4000}
+        # "/api" = same address as the web app (recommended).
+        EXPO_PUBLIC_API_URL: ${PUBLIC_API_URL:-/api}
     restart: unless-stopped
     depends_on:
       - api
     ports:
       - "${WEB_PORT:-8080}:80"
+
+  # Secure access from anywhere without opening router ports.
+  # Create a tunnel in the Cloudflare dashboard (Zero Trust > Networks > Tunnels),
+  # point its public hostname to http://web:80, and put the token in .env.
+  tunnel:
+    image: cloudflare/cloudflared:2026.10.1
+    profiles: ["tunnel"]
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+    depends_on:
+      - web
 
 volumes:
   db-data:

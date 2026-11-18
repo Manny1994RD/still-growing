@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { api, session } from "./api";
+import { api, server, session } from "./api";
 import { cancelAllReminders } from "./notifications";
 import type { User } from "./types";
 
@@ -29,6 +29,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     session.onUnauthorized(() => void signOut());
     (async () => {
       try {
+        await server.load();
         if (await session.load()) setUser((await api.me()).user);
       } catch {
         // Offline or token expired: stay signed out; the user can sign in again.

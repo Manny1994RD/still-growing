@@ -3,7 +3,7 @@
     "name": "Still Growing",
     "slug": "still-growing",
     "scheme": "stillgrowing",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -19,7 +19,11 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.manny1994rd.stillgrowing",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSAppTransportSecurity": {
+          "NSAllowsLocalNetworking": true
+        },
+        "NSLocalNetworkUsageDescription": "Still Growing connects to your Still Growing server on your home network."
       }
     },
     "android": {
@@ -44,6 +48,14 @@
         "expo-notifications",
         {
           "color": "#000000"
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
         }
       ]
     ],

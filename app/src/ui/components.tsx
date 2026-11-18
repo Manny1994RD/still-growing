@@ -2,6 +2,7 @@ import Feather from "@expo/vector-icons/Feather";
 import { type ComponentProps, type ReactNode } from "react";
 import {
   ActivityIndicator,
+  Dimensions,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -396,7 +397,9 @@ export function Sheet({ visible, onClose, title, children }: { visible: boolean;
               {title}
             </Txt>
           ) : null}
-          {children}
+          <ScrollView style={{ maxHeight: Dimensions.get("window").height * 0.72 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+            {children}
+          </ScrollView>
         </Pressable>
       </Pressable>
     </Modal>

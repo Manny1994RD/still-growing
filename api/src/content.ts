@@ -112,3 +112,19 @@ export function pickMessage(type: MessageType, opts: { category?: string; name?:
   const name = opts.name?.trim() || "friend";
   return { ...m, text: m.text.replaceAll("{name}", name) };
 }
+
+/** Ready-made blessings friends can send in one tap. Always allowed. */
+export const BLESSINGS: { id: string; text: string; ref?: string }[] = [
+  { id: "b01", text: "Keep going. God is with you." },
+  { id: "b02", text: "Proud of you. You're growing." },
+  { id: "b03", text: "His mercies are new this morning.", ref: "Lamentations 3:22–23" },
+  { id: "b04", text: "Don't give up. You'll reap in due season.", ref: "Galatians 6:9" },
+  { id: "b05", text: "You're not alone in this." },
+  { id: "b06", text: "I'm thankful for you." },
+  { id: "b07", text: "Be strong and courageous.", ref: "Joshua 1:9" },
+  { id: "b08", text: "He who began a good work in you will finish it.", ref: "Philippians 1:6" },
+  { id: "b09", text: "One step at a time. You've got this." },
+  { id: "b10", text: "Rest in Him today.", ref: "Matthew 11:28" },
+];
+
+export const PRAYER_TEXT = "prayed for you today";

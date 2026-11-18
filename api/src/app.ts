@@ -3,6 +3,8 @@ import { cors } from "hono/cors";
 import { HTTPException } from "hono/http-exception";
 import { z } from "zod";
 import type { Db } from "./db.js";
+import { createCircle } from "./circle.js";
+import { HABIT_COLUMNS, loadProgress } from "./progress.js";
 import { hashPassword, signToken, verifyPassword, verifyToken } from "./auth.js";
 import { MESSAGES, MILESTONES, VERSES, pickMessage, verseOfDay } from "./content.js";
 import {
@@ -73,9 +75,8 @@ const reflectionInput = z.object({
   answers: z.record(z.string(), z.string().max(1000)),
 });
 
-const USER_COLUMNS = `id, email, name, tone, vision, identity_statement, morning_time, evening_time, onboarded, season, created_at`;
-const HABIT_COLUMNS = `id, category_id, name, type, target, unit, days_mask, reminder_time, share_name, archived, sort,
-  to_char(start_date, 'YYYY-MM-DD') AS start_date, created_at`;
+const USER_COLUMNS = `id, email, name, tone, vision, identity_statement, morning_time, evening_time, onboarded, season,
+  friend_code, circle_enabled, share_identity, share_struggling, allow_messages, created_at`;
 
 async function body<T extends z.ZodType>(c: Context, schema: T): Promise<z.infer<T>> {
   let json: unknown;
@@ -281,18 +282,7 @@ export function createApp(db: Db) {
   });
 
   // ---------- progress data ----------
-  async function load(userId: string, today: string) {
-    const habits = await db.query<HabitLite & { name: string; unit: string; reminder_time: string | null; share_name: boolean; sort: number }>(
-      `SELECT ${HABIT_COLUMNS} FROM habits WHERE user_id = $1 AND NOT archived ORDER BY sort, created_at`,
-      [userId],
-    );
-    const checkIns = await db.query<CheckInLite>(
-      `SELECT habit_id, to_char(date, 'YYYY-MM-DD') AS date, value, status FROM check_ins
-        WHERE user_id = $1 AND date >= $2::date AND date <= $3::date`,
-      [userId, addDays(today, -400), today],
-    );
-    return { habits, checkIns };
-  }
+  const load = (userId: string, today: string) => loadProgress(db, userId, today);
 
   async function profile(userId: string) {
     const [u] = await db.query<{ name: string; season: Season }>(`SELECT name, season FROM users WHERE id = $1`, [userId]);
@@ -421,6 +411,8 @@ export function createApp(db: Db) {
 
   // ---------- content (used by the app to schedule local notifications) ----------
   authed.get("/content", (c) => c.json({ messages: MESSAGES, verses: VERSES }));
+
+  authed.route("/", createCircle(db));
 
   app.route("/", authed);
   return app;

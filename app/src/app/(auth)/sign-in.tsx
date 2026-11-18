@@ -2,6 +2,7 @@ import { useRouter } from "expo-router";
 import { useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { Button, ErrorText, Field, Header, IconButton, Screen, Spacer } from "@/ui/components";
+import { ServerPicker } from "@/ui/ServerPicker";
 import { space } from "@/ui/theme";
 
 export default function SignIn() {
@@ -35,6 +36,8 @@ export default function SignIn() {
       <Button title="Sign in" onPress={submit} loading={busy} disabled={!email || !password} />
       <Spacer h={space.md} />
       <Button title="Create an account" variant="ghost" onPress={() => router.replace("/sign-up")} />
+      <Spacer h={space.lg} />
+      <ServerPicker />
     </Screen>
   );
 }
