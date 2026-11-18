@@ -1,12 +1,12 @@
 import { Tabs } from "expo-router";
 import { useEffect } from "react";
 import { AppState } from "react-native";
+import { useI18n } from "@/i18n";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { scheduleWeek } from "@/lib/notifications";
-import { useI18n } from "@/i18n";
 import { Icon } from "@/ui/components";
-import { useTheme } from "@/ui/theme";
+import { useLayout, useTheme } from "@/ui/theme";
 
 /** Re-schedule the week's encouragement whenever the app comes to the foreground. */
 function useReminderSync() {
@@ -20,7 +20,7 @@ function useReminderSync() {
       } catch {}
     };
     void sync();
-    const sub = AppState.addEventListener("change", (s) => s === "active" && void sync());
+    const sub = AppState.addEventListener("change", (st) => st === "active" && void sync());
     return () => sub.remove();
   }, [user]);
 }
@@ -28,6 +28,7 @@ function useReminderSync() {
 export default function TabsLayout() {
   const { c } = useTheme();
   const { s } = useI18n();
+  const { wide } = useLayout();
   useReminderSync();
   return (
     <Tabs
@@ -35,7 +36,14 @@ export default function TabsLayout() {
         headerShown: false,
         tabBarActiveTintColor: c.ink,
         tabBarInactiveTintColor: c.muted,
-        tabBarStyle: { backgroundColor: c.bg, borderTopColor: c.hairline },
+        // Tablets and desktop: a navigation rail on the left instead of a bottom bar.
+        tabBarPosition: wide ? "left" : "bottom",
+        tabBarVariant: wide ? "material" : "uikit",
+        tabBarLabelPosition: wide ? "below-icon" : undefined,
+        tabBarStyle: wide
+          ? { backgroundColor: c.bg, borderRightColor: c.hairline, borderRightWidth: 1, width: 104, paddingTop: 24 }
+          : { backgroundColor: c.bg, borderTopColor: c.hairline },
+        tabBarItemStyle: wide ? { height: 72, marginVertical: 4 } : undefined,
         tabBarLabelStyle: { fontSize: 11, fontWeight: "600" },
         sceneStyle: { backgroundColor: c.bg },
       }}

@@ -75,6 +75,53 @@ const VERSES_ES: Verse[] = [
   { id: "Hebrews 12:1", ref: "Hebreos 12:1", text: "Corramos con paciencia la carrera que nos es propuesta." },
 ];
 
+// ---------- words of encouragement, written as God speaking to you ----------
+// Each one paraphrases a promise from the referenced passage; the app shows
+// "Inspired by …" so it's clear these are paraphrases, not quotations.
+export interface Word {
+  id: string;
+  text: string;
+  ref: string;
+}
+
+const WORDS_EN: Word[] = [
+  { id: "w01", text: "I am with you. Don't be afraid. I will strengthen you and help you today.", ref: "Isaiah 41:10" },
+  { id: "w02", text: "My mercy is new for you this morning. Start again with Me.", ref: "Lamentations 3:22–23" },
+  { id: "w03", text: "I'm not finished with you. I always finish what I start.", ref: "Philippians 1:6" },
+  { id: "w04", text: "Tired? Come to Me. I will give you rest.", ref: "Matthew 11:28" },
+  { id: "w05", text: "Be strong and brave. I go with you wherever you go today.", ref: "Joshua 1:9" },
+  { id: "w06", text: "Give Me your worries. I care about every one of them, and about you.", ref: "1 Peter 5:7" },
+  { id: "w07", text: "You are My new creation. The old you is gone. Walk in what's new.", ref: "2 Corinthians 5:17" },
+  { id: "w08", text: "I delight in you. I sing over you with joy.", ref: "Zephaniah 3:17" },
+  { id: "w09", text: "Don't give up. In the right season, you will see the harvest.", ref: "Galatians 6:9" },
+  { id: "w10", text: "Wait on Me and I will renew your strength. You will run and not grow weary.", ref: "Isaiah 40:31" },
+  { id: "w11", text: "I know the plans I have for you: plans for good, to give you hope and a future.", ref: "Jeremiah 29:11" },
+  { id: "w12", text: "My grace is enough for you. My strength shows up best in your weakness.", ref: "2 Corinthians 12:9" },
+  { id: "w13", text: "Nothing can separate you from My love. Nothing.", ref: "Romans 8:38–39" },
+  { id: "w14", text: "I will never leave you. I will never let you go.", ref: "Hebrews 13:5" },
+  { id: "w15", text: "You can do this. I am the One who strengthens you.", ref: "Philippians 4:13" },
+  { id: "w16", text: "You are not condemned. Get up and walk with Me again.", ref: "Romans 8:1" },
+];
+
+const WORDS_ES: Word[] = [
+  { id: "w01", text: "Yo estoy contigo. No tengas miedo. Hoy te daré fuerzas y te ayudaré.", ref: "Isaías 41:10" },
+  { id: "w02", text: "Mi misericordia es nueva para ti esta mañana. Empieza de nuevo conmigo.", ref: "Lamentaciones 3:22–23" },
+  { id: "w03", text: "No he terminado contigo. Siempre termino lo que comienzo.", ref: "Filipenses 1:6" },
+  { id: "w04", text: "¿Estás cansado? Ven a mí. Yo te daré descanso.", ref: "Mateo 11:28" },
+  { id: "w05", text: "Esfuérzate y sé valiente. Hoy voy contigo a dondequiera que vayas.", ref: "Josué 1:9" },
+  { id: "w06", text: "Dame tus preocupaciones. Me importa cada una de ellas, y me importas tú.", ref: "1 Pedro 5:7" },
+  { id: "w07", text: "Eres mi nueva criatura. Lo viejo ya pasó. Camina en lo nuevo.", ref: "2 Corintios 5:17" },
+  { id: "w08", text: "Me deleito en ti. Me gozo sobre ti con cánticos.", ref: "Sofonías 3:17" },
+  { id: "w09", text: "No te rindas. A su tiempo verás la cosecha.", ref: "Gálatas 6:9" },
+  { id: "w10", text: "Espera en mí y renovaré tus fuerzas. Correrás y no te cansarás.", ref: "Isaías 40:31" },
+  { id: "w11", text: "Yo sé los planes que tengo para ti: planes de bien, para darte esperanza y un futuro.", ref: "Jeremías 29:11" },
+  { id: "w12", text: "Mi gracia te basta. Mi poder se perfecciona en tu debilidad.", ref: "2 Corintios 12:9" },
+  { id: "w13", text: "Nada te puede separar de mi amor. Nada.", ref: "Romanos 8:38–39" },
+  { id: "w14", text: "Nunca te dejaré. Nunca te soltaré.", ref: "Hebreos 13:5" },
+  { id: "w15", text: "Tú puedes. Yo soy quien te fortalece.", ref: "Filipenses 4:13" },
+  { id: "w16", text: "No estás condenado. Levántate y camina conmigo otra vez.", ref: "Romanos 8:1" },
+];
+
 // ---------- messages ----------
 const MESSAGES_EN: Message[] = [
   { id: "m01", type: "morning", text: "Good morning, {name}. You are a new creation today.", ref: "2 Corinthians 5:17" },
@@ -194,8 +241,8 @@ const BLESSINGS_ES: Blessing[] = [
 ];
 
 const CONTENT = {
-  en: { verses: VERSES_EN, messages: MESSAGES_EN, blessings: BLESSINGS_EN, friend: "friend" },
-  es: { verses: VERSES_ES, messages: MESSAGES_ES, blessings: BLESSINGS_ES, friend: "amigo" },
+  en: { verses: VERSES_EN, words: WORDS_EN, messages: MESSAGES_EN, blessings: BLESSINGS_EN, friend: "friend" },
+  es: { verses: VERSES_ES, words: WORDS_ES, messages: MESSAGES_ES, blessings: BLESSINGS_ES, friend: "amigo" },
 } as const;
 
 export const content = (lang: Lang) => CONTENT[lang];
@@ -213,6 +260,39 @@ export function verseOfDay(date: string, lang: Lang = "en"): Verse {
   for (const ch of date) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
   const list = CONTENT[lang].verses;
   return list[h % list.length]!;
+}
+
+export interface DailyItem {
+  kind: "verse" | "word";
+  id: string;
+  text: string;
+  ref: string;
+}
+
+/**
+ * Today's encouragement deck: verses and words of encouragement, alternating,
+ * in a different order every day. The first item is "today's word".
+ */
+export function dailyWords(date: string, lang: Lang = "en", count = 12): DailyItem[] {
+  let h = 0;
+  for (const ch of date) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  const { verses, words } = CONTENT[lang];
+  const startWithWord = h % 2 === 0;
+  const out: DailyItem[] = [];
+  for (let i = 0; out.length < count && i < verses.length + words.length; i++) {
+    const useWord = (i % 2 === 0) === startWithWord;
+    const k = Math.floor(i / 2);
+    if (useWord) {
+      const w = words[(h + k * 7) % words.length]!;
+      out.push({ kind: "word", id: w.id, text: w.text, ref: w.ref });
+    } else {
+      const v = verses[(h + k * 5) % verses.length]!;
+      out.push({ kind: "verse", id: v.id, text: v.text, ref: v.ref });
+    }
+  }
+  // Drop accidental repeats while keeping order.
+  const seen = new Set<string>();
+  return out.filter((x) => (seen.has(x.kind + x.id) ? false : (seen.add(x.kind + x.id), true)));
 }
 
 export function pickMessage(

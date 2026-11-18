@@ -3,11 +3,11 @@ import { useEffect, useState } from "react";
 import { Alert, Platform, Pressable, View } from "react-native";
 import { useI18n } from "@/i18n";
 import { api } from "@/lib/api";
-import { isValidTime } from "@/lib/date";
 import { SUGGESTIONS } from "@/lib/suggestions";
 import type { Category, Habit, HabitInput, HabitType } from "@/lib/types";
 import { Button, Chip, ErrorText, Field, Header, IconButton, Row, Screen, SectionLabel, Spacer, Txt, Wrap } from "./components";
 import { space, useTheme } from "./theme";
+import { TimeField } from "./TimeField";
 
 const TYPES: HabitType[] = ["do", "count", "time", "weekly", "refrain"];
 
@@ -23,7 +23,7 @@ export function HabitForm({ habit }: { habit?: Habit }) {
   const [target, setTarget] = useState(String(habit?.target ?? 1));
   const [unit, setUnit] = useState(habit?.unit ?? "");
   const [days, setDays] = useState(habit?.days_mask ?? 127);
-  const [reminder, setReminder] = useState(habit?.reminder_time ?? "");
+  const [reminder, setReminder] = useState<string | null>(habit?.reminder_time ?? null);
   const [newCat, setNewCat] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -61,7 +61,6 @@ export function HabitForm({ habit }: { habit?: Habit }) {
     const t = Number(target);
     if (!name.trim()) return setError(f.errName);
     if (needsTarget && (!Number.isInteger(t) || t < 1)) return setError(f.errGoal);
-    if (reminder && !isValidTime(reminder)) return setError(f.errReminder);
     const input: HabitInput = {
       name: name.trim(),
       category_id: categoryId,
@@ -220,7 +219,10 @@ export function HabitForm({ habit }: { habit?: Habit }) {
       ) : null}
 
       <SectionLabel>{f.reminder}</SectionLabel>
-      <Field value={reminder} onChangeText={setReminder} placeholder={f.reminderPh} maxLength={5} hint={f.reminderHint} />
+      <TimeField value={reminder} onChange={setReminder} optional />
+      <Txt v="small" muted style={{ marginTop: -space.sm }}>
+        {f.reminderHint}
+      </Txt>
 
       <Spacer h={space.lg} />
       <ErrorText>{error}</ErrorText>

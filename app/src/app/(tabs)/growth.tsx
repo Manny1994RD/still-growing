@@ -3,16 +3,14 @@ import { useCallback, useState } from "react";
 import { Share, View } from "react-native";
 import { useI18n } from "@/i18n";
 import { api } from "@/lib/api";
-import { useAuth } from "@/lib/auth";
 import { localDate, parseDate } from "@/lib/date";
 import type { Stats } from "@/lib/types";
-import { Button, Card, ErrorText, Header, Icon, ProgressBar, Row, Screen, SectionLabel, Spacer, Txt } from "@/ui/components";
+import { Button, Card, Columns, ErrorText, Header, Icon, ProgressBar, Row, Screen, SectionLabel, Spacer, Txt } from "@/ui/components";
 import { radius, space, useTheme } from "@/ui/theme";
 
 const SEASON_ORDER = ["seed", "sprout", "rooted", "fruitful", "overflowing"];
 
 export default function Growth() {
-  const { user } = useAuth();
   const { c } = useTheme();
   const { s, category } = useI18n();
   const g = s.growth;
@@ -38,7 +36,7 @@ export default function Growth() {
     if (!stats) return;
     const areas = stats.categories.filter((x) => x.id !== "freedom").map((x) => category(x.id, x.name));
     await Share.share({
-      message: g.shareMessage(season.title, stats.days_showed_up, stats.streak.current, stats.faithfulness, areas, user?.identity_statement ?? ""),
+      message: g.shareMessage(season.title, stats.days_showed_up, stats.streak.current, stats.faithfulness, areas, ""),
     });
   }
 
@@ -48,7 +46,7 @@ export default function Growth() {
   const today = localDate();
 
   return (
-    <Screen>
+    <Screen wide>
       <Header eyebrow={g.eyebrow} title={season.title} />
       <Txt muted style={{ marginTop: -space.md }}>
         {season.line}
@@ -61,6 +59,9 @@ export default function Growth() {
       </Row>
       <ErrorText>{error}</ErrorText>
 
+      <Columns
+        left={
+          <>
       <SectionLabel>{g.last30}</SectionLabel>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.md }}>
         <Stat label={g.faithfulness} value={stats?.faithfulness == null ? "—" : `${stats.faithfulness}%`} />
@@ -113,6 +114,10 @@ export default function Growth() {
         </View>
       </Card>
 
+          </>
+        }
+        right={
+          <>
       {stats?.categories.length ? (
         <>
           <SectionLabel>{g.balance}</SectionLabel>
@@ -141,6 +146,9 @@ export default function Growth() {
       <Txt v="small" muted center>
         {g.shareNote}
       </Txt>
+          </>
+        }
+      />
     </Screen>
   );
 }

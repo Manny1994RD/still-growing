@@ -18,6 +18,17 @@ export const en = {
     language: "Language",
     days: (n: number): string => (n === 1 ? "day" : "days"),
   },
+  time: {
+    none: "No reminder",
+    remove: "Remove reminder",
+    done: "Done",
+  },
+  word: {
+    title: "A word for you today",
+    verseTitle: "Today's verse",
+    inspired: (ref: string) => `Inspired by ${ref}`,
+    another: "Another word",
+  },
   welcome: {
     title: "Still\nGrowing.",
     tagline: "Build habits that shape who you're becoming, with a daily reminder that God is with you.",
@@ -259,6 +270,7 @@ export const en = {
       (identity ? `\n“In Christ, I'm becoming someone who ${identity}”` : ""),
   },
   settings: {
+    profile: "Profile",
     title: "You",
     becoming: "Who you're becoming",
     name: "Name",

@@ -1,4 +1,4 @@
-import { Platform, useColorScheme } from "react-native";
+import { Platform, useColorScheme, useWindowDimensions } from "react-native";
 
 /**
  * Monochrome design tokens. Light = ink on paper, dark = paper on ink.
@@ -52,3 +52,10 @@ export const type = {
   caption: { fontSize: 12, lineHeight: 16, fontWeight: "600" as const, letterSpacing: 1, textTransform: "uppercase" as const },
   number: { fontSize: 40, lineHeight: 44, fontWeight: "700" as const, letterSpacing: -1.2 },
 };
+
+/** Tablets, iPad and desktop browsers get a side navigation bar and two-column screens. */
+export const WIDE_BREAKPOINT = 768;
+export function useLayout() {
+  const { width, height } = useWindowDimensions();
+  return { wide: width >= WIDE_BREAKPOINT, width, height, compact: width < 360 || height < 680 };
+}

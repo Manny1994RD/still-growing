@@ -97,7 +97,7 @@ describe("Friends Circle", () => {
     expect(raw).not.toContain("No vaping");
 
     await call(ana.token, "POST", "/circle/settings", { share_identity: true });
-    expect((await call(manny.token, "GET", `/circle?today=${today}`)).json.friends[0].identity_statement).toBe("loves people well");
+    expect((await call(manny.token, "GET", `/circle?today=${today}`)).json.friends[0].identity_statement).toBeNull();
   });
 
   it("sends prayers (once a day) and blessings", async () => {

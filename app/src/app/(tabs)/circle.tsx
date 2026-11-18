@@ -10,6 +10,7 @@ import {
   Button,
   Card,
   Chip,
+  Columns,
   ErrorText,
   Field,
   Header,
@@ -139,7 +140,7 @@ export default function Circle() {
   const needs = friends.filter((f) => f.needs_encouragement);
 
   return (
-    <Screen>
+    <Screen wide>
       <Header
         eyebrow={data?.settings.friend_code ? t.yourCode(data.settings.friend_code) : t.eyebrow}
         title={t.title}
@@ -152,6 +153,9 @@ export default function Circle() {
       />
       <ErrorText>{error}</ErrorText>
 
+      <Columns
+        left={
+          <>
       {data?.incoming.length ? (
         <>
           <SectionLabel>{t.requests}</SectionLabel>
@@ -227,6 +231,10 @@ export default function Circle() {
         </Txt>
       )}
 
+          </>
+        }
+        right={
+          <>
       <SectionLabel>{`${t.friends}${friends.length ? ` · ${friends.length}` : ""}`}</SectionLabel>
       {data && friends.length === 0 && data.outgoing.length === 0 ? (
         <View style={{ alignItems: "center", gap: space.lg, paddingVertical: space.xl }}>
@@ -294,6 +302,10 @@ export default function Circle() {
           <Button title={s.common.cancel} small variant="ghost" onPress={() => run(() => api.removeFriend(r.id))} />
         </Row>
       ))}
+
+          </>
+        }
+      />
 
       <AddFriendSheet visible={addOpen} code={data?.settings.friend_code ?? null} onClose={() => setAddOpen(false)} onDone={load} />
       <PrayerRequestSheet visible={requestOpen} onClose={() => setRequestOpen(false)} onDone={load} />
@@ -433,7 +445,7 @@ function PrivacySheet({
     await api.circleSettings(patch).catch(() => {});
     onDone();
   };
-  const toggle = (label: string, hint: string, value: boolean, key: "share_identity" | "share_struggling") => (
+  const toggle = (label: string, hint: string, value: boolean, key: "share_struggling") => (
     <Row gap={space.lg} style={{ paddingVertical: space.md }}>
       <View style={{ flex: 1 }}>
         <Txt v="heading" style={{ fontSize: 15 }}>
@@ -451,7 +463,6 @@ function PrivacySheet({
       <Txt v="small" muted style={{ marginBottom: space.md }}>
         {t.privacyNote}
       </Txt>
-      {toggle(t.showIdentity, t.showIdentityHint, settings.share_identity, "share_identity")}
       {toggle(t.quietNudge, t.quietNudgeHint, settings.share_struggling, "share_struggling")}
       <Txt v="caption" muted style={{ marginTop: space.lg, marginBottom: space.sm }}>
         {t.messagesIReceive}
@@ -554,9 +565,6 @@ function FriendSheet({ friend: f, onClose, onChanged }: { friend: Friend | null;
                 <Txt v="small" muted style={{ marginBottom: space.sm }}>
                   {t.growingIn(f.areas.map((a) => category(a.id, a.name)).join(", "))}
                 </Txt>
-              ) : null}
-              {f.identity_statement ? (
-                <Txt style={{ fontFamily: serif, fontStyle: "italic", marginBottom: space.sm }}>{t.becomingQuote(f.identity_statement)}</Txt>
               ) : null}
               <ErrorText>{error}</ErrorText>
               <SheetAction icon="heart" label={f.prayed_today ? t.youPrayedToday : t.sendPrayer} onPress={() => send("prayer")} />

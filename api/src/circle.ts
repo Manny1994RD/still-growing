@@ -202,7 +202,8 @@ export function createCircle(db: Db) {
         days_showed_up: days,
         commitments: habits.length,
         areas: areaRows.map((a) => ({ id: a.id, name: a.name, icon: a.icon })),
-        identity_statement: p.share_identity ? p.identity_statement : null,
+        // Identity statements were removed from the app; never share them.
+        identity_statement: null,
         needs_encouragement: p.share_struggling && habits.length > 0 && quiet,
         accepts_custom: p.allow_messages === "everyone",
         prayed_today: prayedToday.has(p.id),

@@ -18,7 +18,7 @@ import {
   type ViewStyle,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { radius, serif, space, type as t, useTheme } from "./theme";
+import { radius, serif, space, type as t, useLayout, useTheme } from "./theme";
 
 export type IconName = ComponentProps<typeof Feather>["name"];
 
@@ -34,14 +34,20 @@ export function Screen({
   scroll = true,
   edges = ["top"],
   padded = true,
+  wide = false,
 }: {
   children: ReactNode;
   scroll?: boolean;
   edges?: ("top" | "bottom")[];
   padded?: boolean;
+  /** Allow a wider column on tablets (for two-column screens). */
+  wide?: boolean;
 }) {
   const { c } = useTheme();
-  const inner = <View style={[styles.column, padded && { paddingHorizontal: space.xl }]}>{children}</View>;
+  const { wide: isWide } = useLayout();
+  const inner = (
+    <View style={[styles.column, wide && { maxWidth: 1080 }, padded && { paddingHorizontal: isWide ? space.xxl : space.xl }]}>{children}</View>
+  );
   return (
     <SafeAreaView edges={edges} style={{ flex: 1, backgroundColor: c.bg }}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
@@ -63,6 +69,25 @@ export function Screen({
 
 export function Row({ children, style, gap = space.sm }: { children: ReactNode; style?: ViewStyle; gap?: number }) {
   return <View style={[{ flexDirection: "row", alignItems: "center", gap }, style]}>{children}</View>;
+}
+
+/** Side-by-side columns on tablets, stacked on phones. */
+export function Columns({ left, right, ratio = 1 }: { left: ReactNode; right: ReactNode; ratio?: number }) {
+  const { wide } = useLayout();
+  if (!wide) {
+    return (
+      <>
+        {left}
+        {right}
+      </>
+    );
+  }
+  return (
+    <View style={{ flexDirection: "row", alignItems: "flex-start", gap: space.xxl }}>
+      <View style={{ flex: ratio, minWidth: 0 }}>{left}</View>
+      <View style={{ flex: 1, minWidth: 0 }}>{right}</View>
+    </View>
+  );
 }
 
 export function Spacer({ h = space.lg }: { h?: number }) {

@@ -11,3 +11,6 @@ api/.data/
 
 # Local tooling
 .claude/
+
+# Downloaded app builds
+builds/

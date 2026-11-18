@@ -6,7 +6,7 @@ import type { Db } from "./db.js";
 import { createCircle } from "./circle.js";
 import { HABIT_COLUMNS, loadProgress } from "./progress.js";
 import { hashPassword, signToken, verifyPassword, verifyToken } from "./auth.js";
-import { MILESTONES, asLang, content, pickMessage, verseOfDay, type Lang } from "./content.js";
+import { MILESTONES, asLang, content, dailyWords, pickMessage, verseOfDay, type Lang } from "./content.js";
 import {
   addDays,
   daysShowedUp,
@@ -311,6 +311,7 @@ export function createApp(db: Db) {
     return c.json({
       date: today,
       verse: verseOfDay(today, me.lang),
+      words: dailyWords(today, me.lang),
       greeting: pickMessage("morning", { lang: me.lang, name: me.name, seed: Number(today.replaceAll("-", "")) }),
       habits: items,
     });
@@ -416,8 +417,10 @@ export function createApp(db: Db) {
   // ---------- content (used by the app to schedule local notifications) ----------
   authed.get("/content", async (c) => {
     const { lang } = await profile(c.get("userId"));
-    const { messages, verses } = content(lang);
-    return c.json({ language: lang, messages, verses });
+    const { messages, verses, words } = content(lang);
+    // Words of encouragement also go into the morning reminders.
+    const morningWords = words.map((w) => ({ id: w.id, type: "morning" as const, text: w.text, ref: w.ref }));
+    return c.json({ language: lang, messages: [...messages, ...morningWords], verses });
   });
 
   authed.route("/", createCircle(db));

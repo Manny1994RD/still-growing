@@ -20,6 +20,17 @@ export const es: Dict = {
     language: "Idioma",
     days: (n: number) => (n === 1 ? "día" : "días"),
   },
+  time: {
+    none: "Sin recordatorio",
+    remove: "Quitar recordatorio",
+    done: "Listo",
+  },
+  word: {
+    title: "Una palabra para ti hoy",
+    verseTitle: "El versículo de hoy",
+    inspired: (ref: string) => `Inspirado en ${ref}`,
+    another: "Otra palabra",
+  },
   welcome: {
     title: "Still\nGrowing.",
     tagline: "Crea hábitos que forman la persona en la que te estás convirtiendo, con un recordatorio diario de que Dios está contigo.",
@@ -260,6 +271,7 @@ export const es: Dict = {
       (identity ? `\n“En Cristo, me estoy convirtiendo en alguien que ${identity}”` : ""),
   },
   settings: {
+    profile: "Perfil",
     title: "Tú",
     becoming: "En quién te estás convirtiendo",
     name: "Nombre",

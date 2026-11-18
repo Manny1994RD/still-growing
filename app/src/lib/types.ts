@@ -66,9 +66,17 @@ export interface TodayHabit extends Habit {
   days_free: number | null;
 }
 
+export interface DailyItem {
+  kind: "verse" | "word";
+  id: string;
+  text: string;
+  ref: string;
+}
+
 export interface TodayResponse {
   date: string;
   verse: Verse;
+  words?: DailyItem[];
   greeting: Message;
   habits: TodayHabit[];
 }

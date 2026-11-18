@@ -8,11 +8,12 @@ import type { Dict } from "@/i18n/en";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { greetingFor, localDate, prettyDate } from "@/lib/date";
-import type { CheckIn, TodayHabit, TodayResponse } from "@/lib/types";
+import type { CheckIn, DailyItem, TodayHabit, TodayResponse } from "@/lib/types";
 import {
   Button,
   Card,
   Check,
+  Columns,
   ErrorText,
   Field,
   Header,
@@ -24,9 +25,8 @@ import {
   SheetAction,
   Spacer,
   Txt,
-  Verse,
 } from "@/ui/components";
-import { space, useTheme } from "@/ui/theme";
+import { radius, serif, space, useLayout, useTheme } from "@/ui/theme";
 import { useToast } from "@/ui/toast";
 
 const goalOf = (h: TodayHabit) => (h.type === "count" || h.type === "time" ? h.target : 1);
@@ -55,6 +55,7 @@ export default function Today() {
   const toast = useToast();
   const { c } = useTheme();
   const { s, locale, category } = useI18n();
+  const { wide } = useLayout();
   const [data, setData] = useState<TodayResponse | null>(null);
   const [catNames, setCatNames] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
@@ -155,24 +156,17 @@ export default function Today() {
           />
         }
       >
-        <View style={{ width: "100%", maxWidth: 560, alignSelf: "center", paddingHorizontal: space.xl }}>
+        <View style={{ width: "100%", maxWidth: wide ? 1080 : 560, alignSelf: "center", paddingHorizontal: wide ? space.xxl : space.xl }}>
+          <Columns
+            left={
+          <>
           <Header
             eyebrow={prettyDate(today, locale)}
             title={`${greetingFor(s)},\n${user?.name || s.common.friend}.`}
             right={<IconButton name="plus" label={s.habits.newHabit} onPress={() => router.push("/habit/new")} />}
           />
 
-          {user?.identity_statement ? (
-            <Txt muted style={{ marginTop: -space.md, marginBottom: space.xl }}>
-              {s.today.becoming} {user.identity_statement.replace(/^…|^\.{3}/, "")}
-            </Txt>
-          ) : null}
-
-          {data ? (
-            <Card>
-              <Verse text={data.verse.text} refText={data.verse.ref} />
-            </Card>
-          ) : null}
+          {data ? <WordCard data={data} /> : null}
 
           {circle && (circle.prayers_today > 0 || circle.unread > 0) ? (
             <Pressable onPress={() => router.push("/circle")} style={{ marginTop: space.md }}>
@@ -188,6 +182,10 @@ export default function Today() {
             </Pressable>
           ) : null}
 
+          </>
+            }
+            right={
+          <>
           <ErrorText>{error}</ErrorText>
 
           <SectionLabel right={habits.length ? <Txt v="caption" muted>{`${doneCount}/${habits.length}`}</Txt> : undefined}>
@@ -271,6 +269,9 @@ export default function Today() {
               </Pressable>
             </>
           ) : null}
+          </>
+            }
+          />
         </View>
       </ScrollView>
 
@@ -381,5 +382,46 @@ function ReflectSheet({ visible, onClose, date, onSaved }: { visible: boolean; o
       <ErrorText>{error}</ErrorText>
       <Button title={t.saveReflection} onPress={save} loading={busy} disabled={!sawGod && !heldBack && !building} />
     </Sheet>
+  );
+}
+
+/**
+ * "A word for you today": verses and words of encouragement (written as God
+ * speaking, each based on a verse). Tap "Another word" to see the next one.
+ */
+function WordCard({ data }: { data: TodayResponse }) {
+  const { c } = useTheme();
+  const { s } = useI18n();
+  const items: DailyItem[] = data.words?.length ? data.words : [{ kind: "verse", id: data.verse.ref, text: data.verse.text, ref: data.verse.ref }];
+  const [i, setI] = useState(0);
+  const item = items[i % items.length]!;
+  const isWord = item.kind === "word";
+  return (
+    <View style={{ backgroundColor: c.surface, borderRadius: radius.lg, padding: space.xl }}>
+      <Txt v="caption" muted style={{ marginBottom: space.md }}>
+        {isWord ? s.word.title : s.word.verseTitle}
+      </Txt>
+      <Txt style={{ fontFamily: serif, fontSize: isWord ? 21 : 19, lineHeight: isWord ? 30 : 28, fontStyle: isWord ? "normal" : "italic" }}>
+        {isWord ? item.text : `“${item.text}”`}
+      </Txt>
+      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: space.lg, gap: space.md }}>
+        <Txt v="small" muted style={{ flex: 1 }}>
+          {isWord ? s.word.inspired(item.ref) : item.ref}
+        </Txt>
+        {items.length > 1 ? (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => setI(i + 1)}
+            hitSlop={8}
+            style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", gap: 6, opacity: pressed ? 0.5 : 1 })}
+          >
+            <Icon name="refresh-cw" size={14} />
+            <Txt v="small" style={{ fontWeight: "600" }}>
+              {s.word.another}
+            </Txt>
+          </Pressable>
+        ) : null}
+      </View>
+    </View>
   );
 }

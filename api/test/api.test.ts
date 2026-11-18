@@ -126,3 +126,17 @@ describe("API", () => {
     expect((await call("GET", "/me")).status).toBe(401);
   });
 });
+
+describe("daily words", () => {
+  it("mixes verses and words of encouragement, different each day", async () => {
+    const { dailyWords } = await import("../src/content.js");
+    const a = dailyWords("2026-11-18", "en");
+    const b = dailyWords("2026-11-19", "en");
+    expect(a.length).toBeGreaterThanOrEqual(10);
+    expect(new Set(a.map((x) => x.kind))).toEqual(new Set(["verse", "word"]));
+    expect(a[0]!.text).not.toBe(b[0]!.text);
+    const es = dailyWords("2026-11-18", "es");
+    expect(es[0]!.id).toBe(a[0]!.id);
+    expect(es[0]!.text).not.toBe(a[0]!.text);
+  });
+});
