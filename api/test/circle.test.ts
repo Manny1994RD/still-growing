@@ -153,3 +153,40 @@ describe("Friends Circle", () => {
     expect(r.status).toBe(201);
   });
 });
+
+describe("Spanish", () => {
+  it("filters Spanish abuse but allows normal words", () => {
+    expect(isAllowedMessage("Estoy orgulloso de ti, sigue adelante")).toBe(true);
+    expect(isAllowedMessage("Un cono de helado para celebrar")).toBe(true);
+    expect(isAllowedMessage("eres un pendejo")).toBe(false);
+    expect(isAllowedMessage("Cabrón")).toBe(false);
+  });
+
+  it("uses each user's language for messages, verses and blessings", async () => {
+    const es = await call(null, "POST", "/auth/register", { email: "lucia@example.test", password: "growing123", name: "Lucía", language: "es" });
+    expect(es.json.user.language).toBe("es");
+    const tok = es.json.token as string;
+    const today = await call(tok, "GET", "/today?date=2026-11-18");
+    expect(today.json.greeting.text).toMatch(/Lucía/);
+    const content = await call(tok, "GET", "/content");
+    expect(content.json.language).toBe("es");
+    expect(content.json.messages.find((m: { id: string }) => m.id === "c04").text).toBe("Te presentaste. Dios lo ve.");
+
+    // Manny (English) and Lucía (Spanish) become friends; a blessing shows in the reader's language.
+    await call(tok, "POST", "/circle/settings", { circle_enabled: true });
+    const code = (await call(tok, "GET", "/circle")).json.settings.friend_code;
+    await call(manny.token, "POST", "/friends", { code });
+    await call(tok, "POST", `/friends/${manny.id}/accept`);
+    const blessings = await call(manny.token, "GET", "/circle/blessings");
+    expect(blessings.json.blessings[0].text).toBe("Keep going. God is with you.");
+    await call(manny.token, "POST", "/encouragements", { to: es.json.user.id, type: "message", template_id: "b01" });
+    await call(manny.token, "POST", "/encouragements", { to: es.json.user.id, type: "verse", template_id: "Philippians 4:13" });
+    const inbox = (await call(tok, "GET", "/circle")).json.inbox;
+    expect(inbox.map((m: { text: string }) => m.text).sort()).toEqual(["Sigue adelante. Dios está contigo.", "Todo lo puedo en Cristo que me fortalece."]);
+    expect(inbox.find((m: { type: string }) => m.type === "verse").ref).toBe("Filipenses 4:13");
+
+    // Switching language later is just a profile update.
+    expect((await call(tok, "PATCH", "/me", { language: "en" })).json.user.language).toBe("en");
+    expect((await call(tok, "PATCH", "/me", { language: "fr" })).status).toBe(400);
+  });
+});

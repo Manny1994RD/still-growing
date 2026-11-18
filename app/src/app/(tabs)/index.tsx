@@ -3,10 +3,12 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { Platform, Pressable, RefreshControl, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useI18n } from "@/i18n";
+import type { Dict } from "@/i18n/en";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { greetingFor, localDate, prettyDate } from "@/lib/date";
-import type { Category, CheckIn, TodayHabit, TodayResponse } from "@/lib/types";
+import type { CheckIn, TodayHabit, TodayResponse } from "@/lib/types";
 import {
   Button,
   Card,
@@ -37,14 +39,13 @@ function stateOf(h: TodayHabit): "empty" | "partial" | "done" | "slipped" | "res
   return ci.value >= goalOf(h) ? "done" : ci.value > 0 ? "partial" : "empty";
 }
 
-function subtitle(h: TodayHabit, cat?: Category): string {
-  const parts: string[] = [];
+function subtitle(h: TodayHabit, s: Dict, categoryName: string): string {
+  const parts: string[] = [categoryName];
   const v = h.check_in?.value ?? 0;
-  if (h.type === "count" || h.type === "time") parts.push(`${Math.min(v, 9999)} of ${h.target} ${h.unit || (h.type === "time" ? "min" : "")}`.trim());
-  if (h.type === "weekly") parts.push(`${h.week_done ?? 0} of ${h.target} this week`);
-  if (h.type === "refrain") parts.push(h.check_in?.status === "slipped" ? "New start tomorrow" : `${h.days_free ?? 0} days free`);
-  if (h.streak > 1 && h.type !== "refrain") parts.push(`${h.streak} ${h.type === "weekly" ? "week" : "day"} streak`);
-  if (cat) parts.unshift(cat.name);
+  if (h.type === "count" || h.type === "time") parts.push(s.today.of(Math.min(v, 9999), h.target, h.unit || (h.type === "time" ? "min" : "")));
+  if (h.type === "weekly") parts.push(s.today.thisWeek(h.week_done ?? 0, h.target));
+  if (h.type === "refrain") parts.push(h.check_in?.status === "slipped" ? s.today.newStart : s.today.daysFree(h.days_free ?? 0));
+  if (h.streak > 1 && h.type !== "refrain") parts.push(s.today.streak(h.streak, h.type === "weekly"));
   return parts.join(" · ");
 }
 
@@ -53,8 +54,9 @@ export default function Today() {
   const router = useRouter();
   const toast = useToast();
   const { c } = useTheme();
+  const { s, locale, category } = useI18n();
   const [data, setData] = useState<TodayResponse | null>(null);
-  const [cats, setCats] = useState<Record<string, Category>>({});
+  const [catNames, setCatNames] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [sheet, setSheet] = useState<TodayHabit | null>(null);
@@ -66,7 +68,7 @@ export default function Today() {
     try {
       const [t, cs] = await Promise.all([api.today(localDate()), api.categories()]);
       setData(t);
-      setCats(Object.fromEntries(cs.categories.map((x) => [x.id, x])));
+      setCatNames(Object.fromEntries(cs.categories.map((x) => [x.id, x.name])));
       setError(null);
     } catch (e) {
       setError((e as Error).message);
@@ -77,7 +79,7 @@ export default function Today() {
   useFocusEffect(
     useCallback(() => {
       void load();
-    }, [load]),
+    }, [load, user?.language]),
   );
 
   const patchLocal = (id: string, ci: CheckIn | null, weekDelta = 0) =>
@@ -101,9 +103,11 @@ export default function Today() {
       const reachedGoal = status === "done" && value >= goalOf(h) && (before?.value ?? 0) < goalOf(h);
       if (r.milestone) {
         if (Platform.OS !== "web") void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        toast({ title: `${r.milestone} days`, text: r.message.text, ref: r.message.ref });
-      } else if (reachedGoal || status === "slipped" || status === "rest") {
-        toast({ text: status === "rest" ? "Even God rested. Enjoy today." : r.message.text, ref: status === "rest" ? "Genesis 2:2" : r.message.ref });
+        toast({ title: s.today.milestone(r.milestone), text: r.message.text, ref: r.message.ref });
+      } else if (status === "rest") {
+        toast({ text: s.today.rest, ref: s.today.restRef });
+      } else if (reachedGoal || status === "slipped") {
+        toast({ text: r.message.text, ref: r.message.ref });
       }
       void load();
     } catch (e) {
@@ -125,11 +129,11 @@ export default function Today() {
   }
 
   function primary(h: TodayHabit) {
-    const s = stateOf(h);
+    const st = stateOf(h);
     const v = h.check_in?.status === "done" ? h.check_in.value : 0;
-    if (h.type === "count") return s === "done" ? setSheet(h) : set(h, v + 1);
-    if (h.type === "time") return s === "done" ? setSheet(h) : set(h, Math.min(v + 5, h.target));
-    return s === "empty" ? set(h, 1) : clear(h);
+    if (h.type === "count") return st === "done" ? setSheet(h) : set(h, v + 1);
+    if (h.type === "time") return st === "done" ? setSheet(h) : set(h, Math.min(v + 5, h.target));
+    return st === "empty" ? set(h, 1) : clear(h);
   }
 
   const habits = data?.habits ?? [];
@@ -140,18 +144,27 @@ export default function Today() {
     <SafeAreaView edges={["top"]} style={{ flex: 1, backgroundColor: c.bg }}>
       <ScrollView
         contentContainerStyle={{ paddingTop: space.lg, paddingBottom: 140 }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} />}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={async () => {
+              setRefreshing(true);
+              await load();
+              setRefreshing(false);
+            }}
+          />
+        }
       >
         <View style={{ width: "100%", maxWidth: 560, alignSelf: "center", paddingHorizontal: space.xl }}>
           <Header
-            eyebrow={prettyDate(today)}
-            title={`${greetingFor()},\n${user?.name || "friend"}.`}
-            right={<IconButton name="plus" label="New habit" onPress={() => router.push("/habit/new")} />}
+            eyebrow={prettyDate(today, locale)}
+            title={`${greetingFor(s)},\n${user?.name || s.common.friend}.`}
+            right={<IconButton name="plus" label={s.habits.newHabit} onPress={() => router.push("/habit/new")} />}
           />
 
           {user?.identity_statement ? (
             <Txt muted style={{ marginTop: -space.md, marginBottom: space.xl }}>
-              Becoming someone who {user.identity_statement.replace(/^…|^\.{3}/, "")}
+              {s.today.becoming} {user.identity_statement.replace(/^…|^\.{3}/, "")}
             </Txt>
           ) : null}
 
@@ -167,8 +180,8 @@ export default function Today() {
                 <Icon name="heart" />
                 <Txt style={{ flex: 1 }}>
                   {circle.prayers_today > 0
-                    ? `${circle.prayed_by.slice(0, 2).join(" and ")}${circle.prayers_today > 2 ? " and others" : ""} prayed for you today`
-                    : `${circle.unread} new ${circle.unread === 1 ? "encouragement" : "encouragements"}`}
+                    ? s.today.prayedForYou(circle.prayed_by.slice(0, 2), circle.prayers_today > 2)
+                    : s.today.newEncouragements(circle.unread)}
                 </Txt>
                 <Icon name="chevron-right" color={c.muted} />
               </Card>
@@ -178,7 +191,7 @@ export default function Today() {
           <ErrorText>{error}</ErrorText>
 
           <SectionLabel right={habits.length ? <Txt v="caption" muted>{`${doneCount}/${habits.length}`}</Txt> : undefined}>
-            Today's steps
+            {s.today.steps}
           </SectionLabel>
           {habits.length ? <ProgressBar value={doneCount / habits.length} height={3} /> : null}
           <Spacer h={space.sm} />
@@ -186,16 +199,15 @@ export default function Today() {
           {data && habits.length === 0 ? (
             <View style={{ paddingVertical: space.xxl, alignItems: "center", gap: space.lg }}>
               <Txt muted center>
-                Nothing scheduled today. Rest, or take a new step.
+                {s.today.nothing}
               </Txt>
-              <Button title="Add a habit" icon="plus" small variant="secondary" onPress={() => router.push("/habit/new")} />
+              <Button title={s.today.addHabit} icon="plus" small variant="secondary" onPress={() => router.push("/habit/new")} />
             </View>
           ) : null}
 
           {habits.map((h) => {
-            const s = stateOf(h);
-            const cat = cats[h.category_id];
-            const showBar = (h.type === "count" || h.type === "time") && s !== "done" && s !== "rest";
+            const st = stateOf(h);
+            const showBar = (h.type === "count" || h.type === "time") && st !== "done" && st !== "rest";
             return (
               <Pressable
                 key={h.id}
@@ -203,7 +215,8 @@ export default function Today() {
                 onLongPress={() => setSheet(h)}
                 delayLongPress={350}
                 accessibilityRole="button"
-                accessibilityLabel={`${h.name}, ${s === "done" ? "done" : "not done"}`}
+                accessibilityState={{ checked: st === "done" }}
+                accessibilityLabel={h.name}
                 style={({ pressed }) => ({
                   flexDirection: "row",
                   alignItems: "center",
@@ -214,13 +227,13 @@ export default function Today() {
                   opacity: pressed ? 0.6 : 1,
                 })}
               >
-                <Check state={s} />
+                <Check state={st} />
                 <View style={{ flex: 1, gap: 3 }}>
-                  <Txt v="heading" style={s === "done" || s === "rest" ? { color: c.muted } : undefined}>
+                  <Txt v="heading" style={st === "done" || st === "rest" ? { color: c.muted } : undefined}>
                     {h.name}
                   </Txt>
                   <Txt v="small" muted numberOfLines={1}>
-                    {subtitle(h, cat)}
+                    {subtitle(h, s, category(h.category_id, catNames[h.category_id]))}
                   </Txt>
                   {showBar ? (
                     <View style={{ marginTop: 6 }}>
@@ -228,7 +241,7 @@ export default function Today() {
                     </View>
                   ) : null}
                 </View>
-                <Pressable hitSlop={12} onPress={() => setSheet(h)} accessibilityLabel={`More options for ${h.name}`}>
+                <Pressable hitSlop={12} onPress={() => setSheet(h)} accessibilityLabel={s.today.moreFor(h.name)}>
                   <Icon name="more-horizontal" color={c.muted} />
                 </Pressable>
               </Pressable>
@@ -237,20 +250,20 @@ export default function Today() {
 
           {habits.length ? (
             <Txt v="small" muted style={{ marginTop: space.md }}>
-              Tap to check in · hold for more
+              {s.today.hint}
             </Txt>
           ) : null}
 
           {showEvening && habits.length ? (
             <>
-              <SectionLabel>Evening</SectionLabel>
+              <SectionLabel>{s.today.eveningLabel}</SectionLabel>
               <Pressable onPress={() => setReflectOpen(true)}>
                 <Card style={{ flexDirection: "row", alignItems: "center", gap: space.lg }}>
                   <Icon name="moon" />
                   <View style={{ flex: 1 }}>
-                    <Txt v="heading">Evening check-in</Txt>
+                    <Txt v="heading">{s.today.eveningCheckIn}</Txt>
                     <Txt v="small" muted>
-                      A quiet minute with God
+                      {s.today.quietMinute}
                     </Txt>
                   </View>
                   <Icon name="chevron-right" color={c.muted} />
@@ -277,7 +290,12 @@ export default function Today() {
           router.push(`/habit/${h.id}`);
         }}
       />
-      <ReflectSheet visible={reflectOpen} onClose={() => setReflectOpen(false)} date={today} onSaved={() => toast({ text: "Lay today down. He cares for you.", ref: "1 Peter 5:7" })} />
+      <ReflectSheet
+        visible={reflectOpen}
+        onClose={() => setReflectOpen(false)}
+        date={today}
+        onSaved={() => toast({ text: s.today.reflectionSaved, ref: s.today.reflectionRef })}
+      />
     </SafeAreaView>
   );
 }
@@ -295,40 +313,44 @@ function HabitSheet({
   onClear: (h: TodayHabit) => void;
   onEdit: (h: TodayHabit) => void;
 }) {
+  const { s } = useI18n();
+  const t = s.today;
   if (!h) return <Sheet visible={false} onClose={onClose}>{null}</Sheet>;
   const v = h.check_in?.status === "done" ? h.check_in.value : 0;
   return (
     <Sheet visible onClose={onClose} title={h.name}>
       {h.type === "count" ? (
         <>
-          <SheetAction icon="plus" label={`Add 1 ${h.unit}`.trim()} onPress={() => onSet(h, v + 1)} />
-          {v > 0 ? <SheetAction icon="minus" label={`Remove 1 ${h.unit}`.trim()} onPress={() => onSet(h, v - 1)} /> : null}
-          <SheetAction icon="check-circle" label={`Complete goal (${h.target})`} onPress={() => onSet(h, Math.max(v, h.target))} />
+          <SheetAction icon="plus" label={t.add(h.unit)} onPress={() => onSet(h, v + 1)} />
+          {v > 0 ? <SheetAction icon="minus" label={t.removeOne(h.unit)} onPress={() => onSet(h, v - 1)} /> : null}
+          <SheetAction icon="check-circle" label={t.completeGoal(h.target, "")} onPress={() => onSet(h, Math.max(v, h.target))} />
         </>
       ) : null}
       {h.type === "time" ? (
         <>
-          <SheetAction icon="plus" label="Add 5 minutes" onPress={() => onSet(h, v + 5)} />
-          <SheetAction icon="plus" label="Add 15 minutes" onPress={() => onSet(h, v + 15)} />
-          <SheetAction icon="check-circle" label={`Complete goal (${h.target} min)`} onPress={() => onSet(h, Math.max(v, h.target))} />
+          <SheetAction icon="plus" label={t.addMinutes(5)} onPress={() => onSet(h, v + 5)} />
+          <SheetAction icon="plus" label={t.addMinutes(15)} onPress={() => onSet(h, v + 15)} />
+          <SheetAction icon="check-circle" label={t.completeGoal(h.target, "min")} onPress={() => onSet(h, Math.max(v, h.target))} />
         </>
       ) : null}
-      {h.type === "do" || h.type === "weekly" ? <SheetAction icon="check-circle" label="Mark done" onPress={() => onSet(h, 1)} /> : null}
+      {h.type === "do" || h.type === "weekly" ? <SheetAction icon="check-circle" label={t.markDone} onPress={() => onSet(h, 1)} /> : null}
       {h.type === "refrain" ? (
         <>
-          <SheetAction icon="shield" label="I stayed free today" onPress={() => onSet(h, 1)} />
-          <SheetAction icon="rotate-ccw" label="I slipped. Start fresh" onPress={() => onSet(h, 0, "slipped")} />
+          <SheetAction icon="shield" label={t.stayedFree} onPress={() => onSet(h, 1)} />
+          <SheetAction icon="rotate-ccw" label={t.slipped} onPress={() => onSet(h, 0, "slipped")} />
         </>
       ) : (
-        <SheetAction icon="moon" label="Rest day (keeps your streak)" onPress={() => onSet(h, 0, "rest")} />
+        <SheetAction icon="moon" label={t.restDay} onPress={() => onSet(h, 0, "rest")} />
       )}
-      {h.check_in ? <SheetAction icon="x" label="Clear today" onPress={() => onClear(h)} /> : null}
-      <SheetAction icon="edit-2" label="Edit habit" onPress={() => onEdit(h)} />
+      {h.check_in ? <SheetAction icon="x" label={t.clearToday} onPress={() => onClear(h)} /> : null}
+      <SheetAction icon="edit-2" label={t.editHabit} onPress={() => onEdit(h)} />
     </Sheet>
   );
 }
 
 function ReflectSheet({ visible, onClose, date, onSaved }: { visible: boolean; onClose: () => void; date: string; onSaved: () => void }) {
+  const { s } = useI18n();
+  const t = s.today;
   const [sawGod, setSawGod] = useState("");
   const [heldBack, setHeldBack] = useState("");
   const [building, setBuilding] = useState("");
@@ -352,12 +374,12 @@ function ReflectSheet({ visible, onClose, date, onSaved }: { visible: boolean; o
   }
 
   return (
-    <Sheet visible={visible} onClose={onClose} title="Evening check-in">
-      <Field label="Where did I see God today?" value={sawGod} onChangeText={setSawGod} placeholder="A kind word, a quiet moment…" />
-      <Field label="What held me back?" value={heldBack} onChangeText={setHeldBack} placeholder="Be honest. This is private." />
-      <Field label="I'm building toward…" value={building} onChangeText={setBuilding} placeholder="Who you're becoming" />
+    <Sheet visible={visible} onClose={onClose} title={t.eveningCheckIn}>
+      <Field label={t.sawGod} value={sawGod} onChangeText={setSawGod} placeholder={t.sawGodPh} />
+      <Field label={t.heldBack} value={heldBack} onChangeText={setHeldBack} placeholder={t.heldBackPh} />
+      <Field label={t.building} value={building} onChangeText={setBuilding} placeholder={t.buildingPh} />
       <ErrorText>{error}</ErrorText>
-      <Button title="Save reflection" onPress={save} loading={busy} disabled={!sawGod && !heldBack && !building} />
+      <Button title={t.saveReflection} onPress={save} loading={busy} disabled={!sawGod && !heldBack && !building} />
     </Sheet>
   );
 }

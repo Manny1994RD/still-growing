@@ -24,19 +24,3 @@ export const SUGGESTIONS: Record<string, Suggestion[]> = {
   relationships: [s("relationships", "Family dinner", "weekly", 3, "times"), s("relationships", "Call my parents", "weekly", 1, "call"), s("relationships", "Pray with my family", "do")],
   stewardship: [s("stewardship", "Tithe", "weekly", 1, "time"), s("stewardship", "No impulse buys", "refrain"), s("stewardship", "Track spending", "do")],
 };
-
-export const TYPE_LABELS: Record<HabitInput["type"], { label: string; hint: string }> = {
-  do: { label: "Do it", hint: "Done or not done" },
-  count: { label: "Count it", hint: "Reach a number, like 8 glasses" },
-  time: { label: "Time it", hint: "Reach a number of minutes" },
-  weekly: { label: "Weekly", hint: "A number of times each week" },
-  refrain: { label: "Stay free", hint: "Avoid something, one day at a time" },
-};
-
-export const SEASON_COPY: Record<string, { title: string; line: string }> = {
-  seed: { title: "Seed", line: "You've planted something new." },
-  sprout: { title: "Sprout", line: "Something is growing." },
-  rooted: { title: "Rooted", line: "It's becoming who you are." },
-  fruitful: { title: "Fruitful", line: "Others can see the fruit." },
-  overflowing: { title: "Overflowing", line: "Your growth encourages others." },
-};

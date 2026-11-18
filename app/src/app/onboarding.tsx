@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { Pressable, View } from "react-native";
+import { useI18n } from "@/i18n";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { isValidTime } from "@/lib/date";
 import { notificationsSupported, requestPermission } from "@/lib/notifications";
-import { SUGGESTIONS, TYPE_LABELS } from "@/lib/suggestions";
+import { SUGGESTIONS } from "@/lib/suggestions";
 import type { Category } from "@/lib/types";
 import { Button, Check, Chip, ErrorText, Field, Header, Icon, Row, Screen, Spacer, Txt, Verse, Wrap } from "@/ui/components";
+import { LanguageToggle } from "@/ui/LanguageToggle";
 import { space, useTheme } from "@/ui/theme";
 
 const STEPS = 5;
@@ -14,6 +16,8 @@ const STEPS = 5;
 export default function Onboarding() {
   const { user, updateUser } = useAuth();
   const { c } = useTheme();
+  const { s, lang, category, suggestion, unit } = useI18n();
+  const o = s.onboarding;
   const [step, setStep] = useState(0);
   const [name, setName] = useState(user?.name ?? "");
   const [identity, setIdentity] = useState("");
@@ -30,7 +34,7 @@ export default function Onboarding() {
   }, []);
 
   const options = useMemo(
-    () => areas.flatMap((a) => (SUGGESTIONS[a] ?? []).map((s, i) => ({ key: `${a}:${i}`, s }))),
+    () => areas.flatMap((a) => (SUGGESTIONS[a] ?? []).map((sg, i) => ({ key: `${a}:${i}`, sg }))),
     [areas],
   );
 
@@ -39,16 +43,24 @@ export default function Onboarding() {
 
   async function finish() {
     setError(null);
-    if (!isValidTime(morning) || !isValidTime(evening)) return setError("Use 24-hour times like 07:00 and 20:00.");
+    if (!isValidTime(morning) || !isValidTime(evening)) return setError(o.timeError);
     setBusy(true);
     try {
       for (const key of picked) {
         const [cat, i] = key.split(":");
-        const s = SUGGESTIONS[cat!]![Number(i)]!;
-        await api.createHabit({ ...s, reminder_time: s.reminder_time ?? null, share_name: false });
+        const sg = SUGGESTIONS[cat!]![Number(i)]!;
+        // Habits are created in the person's language.
+        await api.createHabit({ ...sg, name: suggestion(sg.name), unit: unit(sg.unit), reminder_time: sg.reminder_time ?? null, share_name: false });
       }
       if (notificationsSupported) await requestPermission();
-      await updateUser({ name: name.trim(), identity_statement: identity.trim(), morning_time: morning, evening_time: evening, onboarded: true });
+      await updateUser({
+        name: name.trim(),
+        identity_statement: identity.trim(),
+        morning_time: morning,
+        evening_time: evening,
+        language: lang,
+        onboarded: true,
+      });
     } catch (e) {
       setError((e as Error).message);
       setBusy(false);
@@ -67,37 +79,40 @@ export default function Onboarding() {
 
       {step === 0 && (
         <>
-          <Header eyebrow="Welcome" title="God isn't finished with you." />
-          <Txt muted>Still Growing helps you build habits that shape who you're becoming, one faithful step at a time.</Txt>
+          <Header eyebrow={o.welcome} title={o.title0} />
+          <Txt muted>{o.intro}</Txt>
           <Spacer h={space.xl} />
-          <Field label="What should we call you?" value={name} onChangeText={setName} placeholder="First name" autoFocus />
+          <Field label={o.nameLabel} value={name} onChangeText={setName} placeholder={o.namePlaceholder} autoFocus />
+          <Txt v="caption" muted style={{ marginBottom: space.sm }}>
+            {s.common.language}
+          </Txt>
+          <LanguageToggle />
         </>
       )}
 
       {step === 1 && (
         <>
-          <Header eyebrow="Who you're becoming" title="In Christ, I'm becoming someone who…" />
-          <Field
-            value={identity}
-            onChangeText={setIdentity}
-            placeholder="…shows up with faith every day"
-            multiline
-            style={{ minHeight: 110 }}
-            hint="You can change this anytime. It appears on your Today screen as a quiet reminder."
-          />
+          <Header eyebrow={o.identityEyebrow} title={o.identityTitle} />
+          <Field value={identity} onChangeText={setIdentity} placeholder={o.identityPlaceholder} multiline style={{ minHeight: 110 }} hint={o.identityHint} />
           <Spacer h={space.lg} />
-          <Verse text="If anyone is in Christ, he is a new creation." refText="2 Corinthians 5:17" />
+          <Verse text={o.identityVerse} refText={o.identityVerseRef} />
         </>
       )}
 
       {step === 2 && (
         <>
-          <Header eyebrow="Areas" title="Where do you want to grow?" />
-          <Txt muted>Pick up to 3. God cares about all of you: spirit, body, mind and relationships.</Txt>
+          <Header eyebrow={o.areasEyebrow} title={o.areasTitle} />
+          <Txt muted>{o.areasIntro}</Txt>
           <Spacer h={space.xl} />
           <Wrap>
             {categories.map((cat) => (
-              <Chip key={cat.id} label={cat.name} icon={cat.icon} selected={areas.includes(cat.id)} onPress={() => toggle(areas, setAreas, cat.id, 3)} />
+              <Chip
+                key={cat.id}
+                label={category(cat.id, cat.name)}
+                icon={cat.icon}
+                selected={areas.includes(cat.id)}
+                onPress={() => toggle(areas, setAreas, cat.id, 3)}
+              />
             ))}
           </Wrap>
         </>
@@ -105,12 +120,12 @@ export default function Onboarding() {
 
       {step === 3 && (
         <>
-          <Header eyebrow="First steps" title="Pick up to 3 habits" />
-          <Txt muted>Start small. You can add, change or create your own later.</Txt>
+          <Header eyebrow={o.stepsEyebrow} title={o.stepsTitle} />
+          <Txt muted>{o.stepsIntro}</Txt>
           <Spacer h={space.lg} />
-          {options.map(({ key, s }) => {
+          {options.map(({ key, sg }) => {
             const on = picked.includes(key);
-            const cat = categories.find((x) => x.id === s.category_id);
+            const cat = categories.find((x) => x.id === sg.category_id);
             return (
               <Pressable
                 key={key}
@@ -119,10 +134,10 @@ export default function Onboarding() {
               >
                 <Check state={on ? "done" : "empty"} size={26} />
                 <View style={{ flex: 1 }}>
-                  <Txt v="heading">{s.name}</Txt>
+                  <Txt v="heading">{suggestion(sg.name)}</Txt>
                   <Txt v="small" muted>
-                    {cat?.name} · {TYPE_LABELS[s.type].label}
-                    {s.type === "count" || s.type === "time" || s.type === "weekly" ? ` · ${s.target} ${s.unit}` : ""}
+                    {category(sg.category_id, cat?.name)} · {s.types[sg.type].label}
+                    {sg.type === "count" || sg.type === "time" || sg.type === "weekly" ? ` · ${sg.target} ${unit(sg.unit)}` : ""}
                   </Txt>
                 </View>
                 <Icon name={cat?.icon ?? "circle"} size={18} color={c.muted} />
@@ -134,40 +149,34 @@ export default function Onboarding() {
 
       {step === 4 && (
         <>
-          <Header eyebrow="Rhythm" title="When should we encourage you?" />
-          <Txt muted>A short word from God's promises each morning, and a quiet check-in each evening.</Txt>
+          <Header eyebrow={o.rhythmEyebrow} title={o.rhythmTitle} />
+          <Txt muted>{o.rhythmIntro}</Txt>
           <Spacer h={space.xl} />
           <Row gap={space.md}>
             <View style={{ flex: 1 }}>
-              <Field label="Morning" value={morning} onChangeText={setMorning} placeholder="07:00" maxLength={5} />
+              <Field label={o.morning} value={morning} onChangeText={setMorning} placeholder="07:00" maxLength={5} />
             </View>
             <View style={{ flex: 1 }}>
-              <Field label="Evening" value={evening} onChangeText={setEvening} placeholder="20:00" maxLength={5} />
+              <Field label={o.evening} value={evening} onChangeText={setEvening} placeholder="20:00" maxLength={5} />
             </View>
           </Row>
-          {notificationsSupported ? (
-            <Txt v="small" muted>
-              Next, we'll ask permission to send these. Encouragement only, never spam.
-            </Txt>
-          ) : (
-            <Txt v="small" muted>
-              Reminders arrive on the Android and iPhone apps.
-            </Txt>
-          )}
+          <Txt v="small" muted>
+            {notificationsSupported ? o.permissionNote : o.webNote}
+          </Txt>
         </>
       )}
 
       <Spacer h={space.xxl} />
       <ErrorText>{error}</ErrorText>
       {step < STEPS - 1 ? (
-        <Button title={step === 1 && !identity.trim() ? "Skip for now" : "Continue"} onPress={() => setStep(step + 1)} disabled={!canNext} />
+        <Button title={step === 1 && !identity.trim() ? o.skip : s.common.continue} onPress={() => setStep(step + 1)} disabled={!canNext} />
       ) : (
-        <Button title="Take the first step" onPress={finish} loading={busy} />
+        <Button title={o.finish} onPress={finish} loading={busy} />
       )}
       {step > 0 ? (
         <>
           <Spacer h={space.sm} />
-          <Button title="Back" variant="ghost" onPress={() => setStep(step - 1)} />
+          <Button title={s.common.back} variant="ghost" onPress={() => setStep(step - 1)} />
         </>
       ) : null}
     </Screen>

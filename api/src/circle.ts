@@ -3,7 +3,7 @@ import { Hono, type Context } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { z } from "zod";
 import type { Db } from "./db.js";
-import { BLESSINGS, VERSES } from "./content.js";
+import { BLESSINGS, VERSES, asLang, content, localizeTemplate } from "./content.js";
 import { isAllowedMessage } from "./moderation.js";
 import { loadProgress } from "./progress.js";
 import { addDays, daysShowedUp, faithfulness, higherSeason, isDateString, seasonFor, userStreak, type Season } from "./stats.js";
@@ -121,9 +121,15 @@ export function createCircle(db: Db) {
     return c.json({ settings });
   });
 
-  circle.get("/circle/blessings", (c) =>
-    c.json({ blessings: BLESSINGS, verses: VERSES.map((v) => ({ id: v.ref, text: v.text, ref: v.ref })) }),
-  );
+  async function langOf(userId: string) {
+    const [u] = await db.query<{ language: string }>(`SELECT language FROM users WHERE id = $1`, [userId]);
+    return asLang(u?.language);
+  }
+
+  circle.get("/circle/blessings", async (c) => {
+    const { blessings, verses } = content(await langOf(c.get("userId")));
+    return c.json({ blessings, verses: verses.map((v) => ({ id: v.id, text: v.text, ref: v.ref })) });
+  });
 
   // ---------- overview ----------
   circle.get("/circle", async (c) => {
@@ -222,7 +228,7 @@ export function createCircle(db: Db) {
     );
 
     const inbox = await db.query(
-      `SELECT e.id, e.from_id, u.name AS from_name, e.type, e.text, e.ref, e.created_at, e.read_at IS NOT NULL AS read
+      `SELECT e.id, e.from_id, u.name AS from_name, e.type, e.template_id, e.text, e.ref, e.created_at, e.read_at IS NOT NULL AS read
          FROM encouragements e JOIN users u ON u.id = e.from_id
         WHERE e.to_id = $1
           AND NOT EXISTS (SELECT 1 FROM friendships f WHERE f.status = 'blocked'
@@ -231,6 +237,11 @@ export function createCircle(db: Db) {
         ORDER BY e.created_at DESC LIMIT 50`,
       [userId],
     );
+    const lang = await langOf(userId);
+    for (const m of inbox as { type: string; template_id: string | null; text: string; ref: string | null }[]) {
+      const local = localizeTemplate(m.type, m.template_id, lang);
+      if (local) Object.assign(m, local);
+    }
     const unread = inbox.filter((m) => !(m as { read: boolean }).read).length;
 
     return c.json({ settings, friends, incoming, outgoing, prayer_requests: prayerRequests, inbox, unread });
@@ -351,11 +362,11 @@ export function createCircle(db: Db) {
       );
       if (already) return c.json({ status: "already_prayed" });
     } else if (input.type === "verse") {
-      const v = VERSES.find((x) => x.ref === input.template_id);
+      const v = VERSES.find((x) => x.id === input.template_id);
       if (!v) throw new HTTPException(400, { message: "Unknown verse" });
       text = v.text;
       ref = v.ref;
-      templateId = v.ref;
+      templateId = v.id;
     } else if (input.template_id) {
       const b = BLESSINGS.find((x) => x.id === input.template_id);
       if (!b) throw new HTTPException(400, { message: "Unknown blessing" });
@@ -427,7 +438,7 @@ export function createCircle(db: Db) {
     );
     if (inserted.length) {
       await db.query(
-        `INSERT INTO encouragements (from_id, to_id, type, text) VALUES ($1, $2, 'prayer', 'is praying for your request')`,
+        `INSERT INTO encouragements (from_id, to_id, type, template_id) VALUES ($1, $2, 'prayer', 'request')`,
         [userId, req.user_id],
       );
     }

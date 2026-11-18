@@ -1,8 +1,10 @@
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { I18nProvider } from "@/i18n";
 import { AuthProvider, useAuth } from "@/lib/auth";
 import { Loading } from "@/ui/components";
+import { LanguageSync } from "@/ui/LanguageToggle";
 import { useTheme } from "@/ui/theme";
 import { ToastProvider } from "@/ui/toast";
 
@@ -17,6 +19,7 @@ function RootNavigator() {
   return (
     <>
       <StatusBar style={dark ? "light" : "dark"} />
+      <LanguageSync />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: c.bg } }}>
         <Stack.Protected guard={!signedIn} redirectTo="/">
           <Stack.Screen name="(auth)" />
@@ -37,11 +40,13 @@ function RootNavigator() {
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
-      <AuthProvider>
-        <ToastProvider>
-          <RootNavigator />
-        </ToastProvider>
-      </AuthProvider>
+      <I18nProvider>
+        <AuthProvider>
+          <ToastProvider>
+            <RootNavigator />
+          </ToastProvider>
+        </AuthProvider>
+      </I18nProvider>
     </SafeAreaProvider>
   );
 }

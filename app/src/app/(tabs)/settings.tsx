@@ -1,19 +1,21 @@
 import { useState } from "react";
-import { Alert, Platform } from "react-native";
+import { Alert, Platform, View } from "react-native";
+import { useI18n } from "@/i18n";
 import { api, server } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { isValidTime } from "@/lib/date";
 import { notificationsSupported, requestPermission } from "@/lib/notifications";
 import type { Tone } from "@/lib/types";
 import { Button, ErrorText, Field, Header, Row, Screen, SectionLabel, Segmented, Spacer, Txt } from "@/ui/components";
+import { LanguageToggle } from "@/ui/LanguageToggle";
 import { space } from "@/ui/theme";
 import { useToast } from "@/ui/toast";
 
-function confirm(title: string, message: string, action: string): Promise<boolean> {
+function confirm(title: string, message: string, action: string, cancel: string): Promise<boolean> {
   if (Platform.OS === "web") return Promise.resolve(globalThis.confirm?.(`${title}\n\n${message}`) ?? false);
   return new Promise((resolve) =>
     Alert.alert(title, message, [
-      { text: "Cancel", style: "cancel", onPress: () => resolve(false) },
+      { text: cancel, style: "cancel", onPress: () => resolve(false) },
       { text: action, style: "destructive", onPress: () => resolve(true) },
     ]),
   );
@@ -22,6 +24,8 @@ function confirm(title: string, message: string, action: string): Promise<boolea
 export default function Settings() {
   const { user, updateUser, signOut } = useAuth();
   const toast = useToast();
+  const { s } = useI18n();
+  const t = s.settings;
   const [name, setName] = useState(user?.name ?? "");
   const [identity, setIdentity] = useState(user?.identity_statement ?? "");
   const [vision, setVision] = useState(user?.vision ?? "");
@@ -33,11 +37,11 @@ export default function Settings() {
 
   async function save() {
     setError(null);
-    if (!isValidTime(morning) || !isValidTime(evening)) return setError("Use 24-hour times like 07:00 and 20:00.");
+    if (!isValidTime(morning) || !isValidTime(evening)) return setError(s.onboarding.timeError);
     setBusy(true);
     try {
       await updateUser({ name: name.trim(), identity_statement: identity.trim(), vision: vision.trim(), tone, morning_time: morning, evening_time: evening });
-      toast({ text: "Saved." });
+      toast({ text: s.common.saved });
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -46,7 +50,7 @@ export default function Settings() {
   }
 
   async function deleteAccount() {
-    if (!(await confirm("Delete account?", "This permanently deletes your account, habits and reflections. It can't be undone.", "Delete"))) return;
+    if (!(await confirm(t.deleteTitle, t.deleteBody, s.common.delete, s.common.cancel))) return;
     try {
       await api.deleteMe();
       await signOut();
@@ -57,56 +61,63 @@ export default function Settings() {
 
   return (
     <Screen>
-      <Header eyebrow={user?.email} title="You" />
+      <Header eyebrow={user?.email} title={t.title} />
 
-      <SectionLabel>Who you're becoming</SectionLabel>
-      <Field label="Name" value={name} onChangeText={setName} />
-      <Field label="In Christ, I'm becoming someone who…" value={identity} onChangeText={setIdentity} multiline style={{ minHeight: 80 }} />
-      <Field label="The life God is calling me to" value={vision} onChangeText={setVision} multiline style={{ minHeight: 80 }} placeholder="One sentence is enough" />
+      <SectionLabel>{s.common.language}</SectionLabel>
+      <LanguageToggle />
 
-      <SectionLabel>Encouragement</SectionLabel>
+      <SectionLabel>{t.becoming}</SectionLabel>
+      <Field label={t.name} value={name} onChangeText={setName} />
+      <Field label={t.identity} value={identity} onChangeText={setIdentity} multiline style={{ minHeight: 80 }} />
+      <Field label={t.vision} value={vision} onChangeText={setVision} multiline style={{ minHeight: 80 }} placeholder={t.visionPh} />
+
+      <SectionLabel>{t.encouragement}</SectionLabel>
       <Txt v="caption" muted style={{ marginBottom: space.sm }}>
-        Tone
+        {t.tone}
       </Txt>
       <Segmented<Tone>
         value={tone}
         onChange={setTone}
         options={[
-          { value: "gentle", label: "Gentle" },
-          { value: "scripture", label: "Scripture" },
-          { value: "coach", label: "Coach" },
+          { value: "gentle", label: t.gentle },
+          { value: "scripture", label: t.scripture },
+          { value: "coach", label: t.coach },
         ]}
       />
       <Spacer h={space.lg} />
-      <Row gap={space.md}>
-        <Field label="Morning word" value={morning} onChangeText={setMorning} maxLength={5} style={{ minWidth: 140 }} />
-        <Field label="Evening check-in" value={evening} onChangeText={setEvening} maxLength={5} style={{ minWidth: 140 }} />
+      <Row gap={space.md} style={{ alignItems: "flex-end" }}>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Field label={t.morning} value={morning} onChangeText={setMorning} maxLength={5} />
+        </View>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Field label={t.evening} value={evening} onChangeText={setEvening} maxLength={5} />
+        </View>
       </Row>
       {notificationsSupported ? (
         <Button
-          title="Allow notifications"
+          title={t.allowNotifications}
           variant="secondary"
           small
           icon="bell"
-          onPress={async () => toast({ text: (await requestPermission()) ? "Notifications are on." : "Notifications are off. You can turn them on in system settings." })}
+          onPress={async () => toast({ text: (await requestPermission()) ? t.notificationsOn : t.notificationsOff })}
         />
       ) : (
         <Txt v="small" muted>
-          Reminders arrive on the Android and iPhone apps.
+          {s.onboarding.webNote}
         </Txt>
       )}
 
       <Spacer h={space.xl} />
       <ErrorText>{error}</ErrorText>
-      <Button title="Save changes" onPress={save} loading={busy} />
+      <Button title={s.common.save} onPress={save} loading={busy} />
 
-      <SectionLabel>Account</SectionLabel>
-      <Button title="Sign out" variant="secondary" onPress={signOut} />
+      <SectionLabel>{t.account}</SectionLabel>
+      <Button title={t.signOut} variant="secondary" onPress={signOut} />
       <Spacer h={space.sm} />
-      <Button title="Delete account" variant="danger" onPress={deleteAccount} />
+      <Button title={t.deleteAccount} variant="danger" onPress={deleteAccount} />
       <Spacer h={space.xl} />
       <Txt v="small" muted center>
-        Still Growing 0.2 · {server.url}
+        Still Growing 0.3 · {server.url}
       </Txt>
     </Screen>
   );

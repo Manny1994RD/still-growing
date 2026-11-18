@@ -1,5 +1,6 @@
 import { Platform } from "react-native";
 import * as Notifications from "expo-notifications";
+import { dict } from "@/i18n";
 import { localDate } from "./date";
 import type { Habit, Message, User } from "./types";
 
@@ -50,7 +51,7 @@ export async function cancelAllReminders() {
   await Notifications.cancelAllScheduledNotificationsAsync();
 }
 
-const fill = (m: Message, name: string) => m.text.replaceAll("{name}", name || "friend");
+const fill = (m: Message, name: string) => m.text.replaceAll("{name}", name || dict().common.friend);
 const withRef = (m: Message, name: string) => (m.ref ? `${fill(m, name)} (${m.ref})` : fill(m, name));
 
 function at(day: Date, time: string): Date {
@@ -78,7 +79,7 @@ export async function scheduleWeek(user: User, habits: Habit[], messages: Messag
 
     if (morning.length) {
       const m = morning[(seed + i) % morning.length]!;
-      jobs.push({ date: at(day, user.morning_time), title: "Still Growing", body: withRef(m, user.name) });
+      jobs.push({ date: at(day, user.morning_time), title: dict().notifications.appTitle, body: withRef(m, user.name) });
     }
     for (const h of habits) {
       if (!h.reminder_time || h.archived) continue;
@@ -88,12 +89,12 @@ export async function scheduleWeek(user: User, habits: Habit[], messages: Messag
       jobs.push({
         date: at(day, h.reminder_time),
         title: h.name,
-        body: m ? fill(m, user.name) : "One faithful step today.",
+        body: m ? fill(m, user.name) : dict().notifications.fallback,
       });
     }
     if (evening.length) {
       const m = evening[(seed + i) % evening.length]!;
-      jobs.push({ date: at(day, user.evening_time), title: "Evening check-in", body: fill(m, user.name) });
+      jobs.push({ date: at(day, user.evening_time), title: dict().notifications.eveningTitle, body: fill(m, user.name) });
     }
   }
 

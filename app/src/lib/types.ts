@@ -13,6 +13,7 @@ export interface User {
   evening_time: string;
   onboarded: boolean;
   season: Season;
+  language: "en" | "es";
 }
 
 export interface Category {
@@ -131,6 +132,7 @@ export interface InboxItem {
   from_id: string;
   from_name: string;
   type: "prayer" | "message" | "verse";
+  template_id: string | null;
   text: string;
   ref: string | null;
   created_at: string;

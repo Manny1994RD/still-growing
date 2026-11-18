@@ -21,9 +21,10 @@ One codebase ships to **Android (APK/AAB)**, **iPhone (IPA)** and the **web**. A
 - **Share your growth** without revealing habit names. Freedom habits are never shared.
 - **Friends Circle** (optional, off by default): add friends by code, see each other's growth (season, streak, faithfulness, areas), send a prayer in one tap, blessings, verses and short notes, and share prayer requests. Habit names, reflections and Freedom habits are never shown. Includes a message filter, block, report, a "blessings only" setting and a gentle "could use encouragement" nudge that users opt into.
 - **Self-hosting friendly:** the server address can be changed inside the app, so one Android/iPhone build works with your own server.
+- **English and Spanish:** each person picks their language (it follows the phone by default). Messages, verses (WEB / Reina-Valera 1909), blessings and notifications all switch, and blessings from friends show in the reader's language.
 - **Clean monochrome design** with automatic light and dark mode.
 
-Planned next (see [docs/Product_Plan.pdf](docs/Product_Plan.pdf)): push notifications for prayers received, weekly review, Spanish.
+Planned next (see [docs/Product_Plan.pdf](docs/Product_Plan.pdf)): push notifications for prayers received, weekly review.
 
 ## Project layout
 
@@ -68,14 +69,14 @@ Run `docker compose up -d --build` on the server, then choose how phones reach i
 |---|---|---|---|
 | **A. Home Wi-Fi only** | Your home network | None. Use `http://<server-ip>:8080/api` | Simplest. Doesn't work on cellular or away from home. |
 | **B. Cloudflare Tunnel** (recommended) | Anywhere | Free Cloudflare account + a domain (~$10/yr) | Real HTTPS, no router ports opened, home IP stays hidden. |
-| **C. Tailscale** | Anywhere, for people you invite | Free; each phone installs the Tailscale app | Private network. Good for family only. |
+| **C. Tailscale Funnel** | Anywhere | Free Tailscale account, no domain needed | `tailscale funnel --bg 8080` publishes it at `https://<machine>.<tailnet>.ts.net`. Keep the machine and tailnet names fixed after building the apps. |
 
 **Option B, step by step:**
 1. In the Cloudflare dashboard go to Zero Trust → Networks → Tunnels → Create a tunnel, and copy its token.
 2. Add a public hostname (for example `growing.yourdomain.com`) pointing to `http://web:80`.
 3. Put the token in `.env` as `CLOUDFLARE_TUNNEL_TOKEN=...`
 4. Run `docker compose --profile tunnel up -d`
-5. In the app, tap **Server · Change** on the sign-in screen and enter `https://growing.yourdomain.com/api`, or bake it into the build by setting `EXPO_PUBLIC_API_URL` in `app/eas.json`.
+5. In the app, tap **Server · Change** on the sign-in screen and enter `https://growing.yourdomain.com/api`, or bake it into the builds (see below).
 
 Back up your data with:
 
@@ -105,19 +106,23 @@ cd app && npx tsc --noEmit
 
 Builds run in the cloud with Expo Application Services (EAS), so **no Mac is needed for the iPhone build**.
 
-1. Set `EXPO_PUBLIC_API_URL` in `app/eas.json` to your server's API address (for example `https://growing.yourdomain.com/api`). Users can also change it later in the app.
-2. Run:
+The server address is baked into the apps at build time. It's kept in your Expo account (not in this public repo), so your home server's address isn't published on GitHub.
 
 ```bash
 cd app
 npx eas-cli@latest login
-npx eas-cli@latest build:configure
-npx eas-cli@latest build --platform android --profile preview      # installable .apk
+npx eas-cli@latest init                       # links the project to your Expo account (first time only)
+
+# Store your server address once per build profile:
+npx eas-cli@latest env:create --environment preview    --name EXPO_PUBLIC_API_URL --value https://<your-server>/api --visibility plaintext
+npx eas-cli@latest env:create --environment production --name EXPO_PUBLIC_API_URL --value https://<your-server>/api --visibility plaintext
+
+npx eas-cli@latest build --platform android --profile preview      # installable .apk to share directly
 npx eas-cli@latest build --platform android --profile production   # .aab for Google Play
 npx eas-cli@latest build --platform ios --profile production       # .ipa for TestFlight / App Store
 ```
 
-The iPhone build needs an Apple Developer account ($99/year). Google Play needs a one-time $25 developer account.
+The iPhone build needs an Apple Developer account ($99/year). Google Play needs a one-time $25 developer account. People can still change the server inside the app (**Server · Change** on the sign-in screen).
 
 ## Configuration
 
@@ -128,7 +133,7 @@ The iPhone build needs an Apple Developer account ($99/year). Google Play needs 
 | `PUBLIC_API_URL` | `.env` | API URL baked into the Docker web build (`/api` by default) |
 | `CLOUDFLARE_TUNNEL_TOKEN` | `.env` | Optional tunnel for access from anywhere |
 | `CORS_ORIGIN` | `.env` | Allowed browser origins (`*` by default) |
-| `EXPO_PUBLIC_API_URL` | `app/eas.json` or shell | API URL for phone builds |
+| `EXPO_PUBLIC_API_URL` | EAS environment variable | API URL baked into phone builds |
 
 ## API overview
 

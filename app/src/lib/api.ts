@@ -1,5 +1,6 @@
 import Constants from "expo-constants";
 import { Platform } from "react-native";
+import { dict, translateServerError } from "@/i18n";
 import { secure } from "./storage";
 import type {
   Blessing,
@@ -65,7 +66,7 @@ export const server = {
       clearTimeout(timer);
       ok = res.ok && (await res.json().catch(() => ({}))).ok === true;
     } catch {}
-    if (!ok) throw new ApiError(`Couldn't reach a Still Growing server at ${url}`, 0);
+    if (!ok) throw new ApiError(dict().errors.server(url), 0);
     baseUrl = url;
     if (url === DEFAULT_API_URL) await secure.remove(SERVER_KEY);
     else await secure.set(SERVER_KEY, url);
@@ -115,20 +116,20 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
       body: body === undefined ? undefined : JSON.stringify(body),
     });
   } catch {
-    throw new ApiError("Can't reach the server. Check your connection.", 0);
+    throw new ApiError(dict().errors.network, 0);
   }
   if (res.status === 204) return undefined as T;
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     if (res.status === 401 && token) onUnauthorized?.();
-    throw new ApiError(data.error ?? `Request failed (${res.status})`, res.status);
+    throw new ApiError(translateServerError(data.error ?? `Request failed (${res.status})`), res.status);
   }
   return data as T;
 }
 
 export const api = {
-  register: (email: string, password: string, name: string) =>
-    request<{ token: string; user: User }>("POST", "/auth/register", { email, password, name }),
+  register: (email: string, password: string, name: string, language: "en" | "es") =>
+    request<{ token: string; user: User }>("POST", "/auth/register", { email, password, name, language }),
   login: (email: string, password: string) =>
     request<{ token: string; user: User }>("POST", "/auth/login", { email, password }),
   me: () => request<{ user: User }>("GET", "/me"),
@@ -152,7 +153,7 @@ export const api = {
   stats: (today: string) => request<Stats>("GET", `/stats?today=${today}`),
   reflect: (date: string, type: "evening" | "ping" | "missed_reason", answers: Record<string, string>) =>
     request("POST", "/reflections", { date, type, answers }),
-  content: () => request<{ messages: Message[]; verses: Verse[] }>("GET", "/content"),
+  content: () => request<{ language: "en" | "es"; messages: Message[]; verses: Verse[] }>("GET", "/content"),
 
   // Friends Circle
   circle: (today: string) => request<CircleResponse>("GET", `/circle?today=${today}`),

@@ -1,15 +1,17 @@
 import { useState } from "react";
 import { Pressable } from "react-native";
+import { useI18n } from "@/i18n";
 import { DEFAULT_API_URL, server } from "@/lib/api";
 import { Button, ErrorText, Field, Icon, Row, Sheet, Spacer, Txt } from "./components";
 import { space, useTheme } from "./theme";
 
 /**
- * Small "Server: …  Change" link for self-hosting. Lets one app build connect
- * to any Still Growing server (home server, tunnel URL, etc.).
+ * Small "server · Change" link for self-hosting. Lets one app build connect
+ * to any Still Growing server.
  */
 export function ServerPicker() {
   const { c } = useTheme();
+  const { s } = useI18n();
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState(server.url);
   const [current, setCurrent] = useState(server.url);
@@ -42,12 +44,12 @@ export function ServerPicker() {
         <Row gap={6}>
           <Icon name="server" size={13} color={c.muted} />
           <Txt v="small" muted numberOfLines={1}>
-            {current.replace(/^https?:\/\//, "")} · Change
+            {current.replace(/^https?:\/\//, "")} · {s.server.change}
           </Txt>
         </Row>
       </Pressable>
-      <Sheet visible={open} onClose={() => setOpen(false)} title="Server">
-        <Txt muted>Enter the address of your Still Growing server, for example your home server or its secure tunnel address.</Txt>
+      <Sheet visible={open} onClose={() => setOpen(false)} title={s.server.title}>
+        <Txt muted>{s.server.explain}</Txt>
         <Spacer h={space.lg} />
         <Field
           value={value}
@@ -55,15 +57,15 @@ export function ServerPicker() {
           autoCapitalize="none"
           autoCorrect={false}
           keyboardType="url"
-          placeholder="https://growing.example.com"
+          placeholder="https://growing.example.com/api"
           onSubmitEditing={() => save(value)}
         />
         <ErrorText>{error}</ErrorText>
-        <Button title="Connect" onPress={() => save(value)} loading={busy} disabled={!value.trim()} />
+        <Button title={s.server.connect} onPress={() => save(value)} loading={busy} disabled={!value.trim()} />
         {current !== DEFAULT_API_URL ? (
           <>
             <Spacer h={space.sm} />
-            <Button title="Use default server" variant="ghost" onPress={() => save(DEFAULT_API_URL)} />
+            <Button title={s.server.useDefault} variant="ghost" onPress={() => save(DEFAULT_API_URL)} />
           </>
         ) : null}
       </Sheet>

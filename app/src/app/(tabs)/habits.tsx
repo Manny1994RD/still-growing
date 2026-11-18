@@ -1,25 +1,27 @@
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { Pressable, View } from "react-native";
+import { useI18n } from "@/i18n";
+import type { Dict } from "@/i18n/en";
 import { api } from "@/lib/api";
 import { formatTime, scheduleLabel } from "@/lib/date";
-import { TYPE_LABELS } from "@/lib/suggestions";
 import type { Category, Habit } from "@/lib/types";
 import { Button, ErrorText, Header, Icon, IconButton, Row, Screen, SectionLabel, Txt } from "@/ui/components";
 import { space, useTheme } from "@/ui/theme";
 
-function detail(h: Habit): string {
-  const parts = [TYPE_LABELS[h.type].label];
+function detail(h: Habit, s: Dict, locale: string): string {
+  const parts = [s.types[h.type].label];
   if (h.type === "count" || h.type === "time") parts.push(`${h.target} ${h.unit || (h.type === "time" ? "min" : "")}`.trim());
-  if (h.type === "weekly") parts.push(`${h.target}× a week`);
-  else parts.push(scheduleLabel(h.days_mask));
-  if (h.reminder_time) parts.push(formatTime(h.reminder_time));
+  if (h.type === "weekly") parts.push(s.schedule.perWeek(h.target));
+  else parts.push(scheduleLabel(h.days_mask, s));
+  if (h.reminder_time) parts.push(formatTime(h.reminder_time, locale));
   return parts.join(" · ");
 }
 
 export default function Habits() {
   const router = useRouter();
   const { c } = useTheme();
+  const { s, locale, category } = useI18n();
   const [habits, setHabits] = useState<Habit[] | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -42,24 +44,37 @@ export default function Habits() {
 
   return (
     <Screen>
-      <Header eyebrow={`${habits?.length ?? 0} active`} title="Habits" right={<IconButton name="plus" label="New habit" onPress={() => router.push("/habit/new")} />} />
+      <Header
+        eyebrow={s.habits.active(habits?.length ?? 0)}
+        title={s.habits.title}
+        right={<IconButton name="plus" label={s.habits.newHabit} onPress={() => router.push("/habit/new")} />}
+      />
       <ErrorText>{error}</ErrorText>
 
       {habits && habits.length === 0 ? (
         <View style={{ paddingVertical: space.xxxl, alignItems: "center", gap: space.lg }}>
           <Txt muted center>
-            No habits yet. Start with one small step.
+            {s.habits.empty}
           </Txt>
-          <Button title="Create a habit" icon="plus" small onPress={() => router.push("/habit/new")} />
+          <Button title={s.habits.create} icon="plus" small onPress={() => router.push("/habit/new")} />
         </View>
       ) : null}
 
       {groups.map(({ cat, items }) => (
         <View key={cat.id}>
           <SectionLabel
-            right={cat.private_by_default ? <Row gap={4}><Icon name="lock" size={12} color={c.muted} /><Txt v="caption" muted>Private</Txt></Row> : undefined}
+            right={
+              cat.private_by_default ? (
+                <Row gap={4}>
+                  <Icon name="lock" size={12} color={c.muted} />
+                  <Txt v="caption" muted>
+                    {s.habits.private}
+                  </Txt>
+                </Row>
+              ) : undefined
+            }
           >
-            {cat.name}
+            {category(cat.id, cat.name)}
           </SectionLabel>
           {items.map((h) => (
             <Pressable
@@ -81,7 +96,7 @@ export default function Habits() {
               <View style={{ flex: 1, gap: 2 }}>
                 <Txt v="heading">{h.name}</Txt>
                 <Txt v="small" muted numberOfLines={1}>
-                  {detail(h)}
+                  {detail(h, s, locale)}
                 </Txt>
               </View>
               <Icon name="chevron-right" color={c.muted} />

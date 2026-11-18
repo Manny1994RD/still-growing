@@ -1,15 +1,23 @@
 /**
- * Lightweight filter for custom messages between friends. It is a first line
- * of defense only; block and report handle the rest.
+ * Lightweight filter for custom messages between friends (English and
+ * Spanish). It is a first line of defense only; block and report handle the rest.
  */
 const BLOCKED = [
   "fuck", "shit", "bitch", "bastard", "asshole", "dick", "pussy", "cunt", "slut", "whore",
   "nigger", "nigga", "faggot", "retard", "kill yourself", "kys",
+  // Spanish
+  "puta", "puto", "pendejo", "pendeja", "mierda", "cabron", "cabrona", "maricon", "marica",
+  "hijo de puta", "mamaguevo", "mamaguebo", "malparido", "verga", "culero", "matate",
 ];
+
+// Accents (combining marks U+0300 to U+036F) are stripped so "cabrón" matches "cabron".
+const COMBINING_MARKS = new RegExp(`[${String.fromCharCode(0x300)}-${String.fromCharCode(0x36f)}]`, "g");
 
 const normalize = (s: string) =>
   s
     .toLowerCase()
+    .normalize("NFD")
+    .replace(COMBINING_MARKS, "")
     .replace(/[0@]/g, "o")
     .replace(/[1!|]/g, "i")
     .replace(/3/g, "e")

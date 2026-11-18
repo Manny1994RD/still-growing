@@ -6,7 +6,7 @@ import type { Db } from "./db.js";
 import { createCircle } from "./circle.js";
 import { HABIT_COLUMNS, loadProgress } from "./progress.js";
 import { hashPassword, signToken, verifyPassword, verifyToken } from "./auth.js";
-import { MESSAGES, MILESTONES, VERSES, pickMessage, verseOfDay } from "./content.js";
+import { MILESTONES, asLang, content, pickMessage, verseOfDay, type Lang } from "./content.js";
 import {
   addDays,
   daysShowedUp,
@@ -45,6 +45,7 @@ const profilePatch = z
     morning_time: time,
     evening_time: time,
     onboarded: z.boolean(),
+    language: z.enum(["en", "es"]),
   })
   .partial();
 
@@ -75,7 +76,7 @@ const reflectionInput = z.object({
   answers: z.record(z.string(), z.string().max(1000)),
 });
 
-const USER_COLUMNS = `id, email, name, tone, vision, identity_statement, morning_time, evening_time, onboarded, season,
+const USER_COLUMNS = `id, email, name, tone, vision, identity_statement, morning_time, evening_time, onboarded, season, language,
   friend_code, circle_enabled, share_identity, share_struggling, allow_messages, created_at`;
 
 async function body<T extends z.ZodType>(c: Context, schema: T): Promise<z.infer<T>> {
@@ -128,15 +129,15 @@ export function createApp(db: Db) {
 
   // ---------- auth ----------
   app.post("/auth/register", async (c) => {
-    const { email, password, name } = await body(
+    const { email, password, name, language } = await body(
       c,
-      credentials.extend({ name: z.string().trim().max(60).default("") }),
+      credentials.extend({ name: z.string().trim().max(60).default(""), language: z.enum(["en", "es"]).default("en") }),
     );
     const existing = await db.query(`SELECT 1 FROM users WHERE email = $1`, [email]);
     if (existing.length) throw new HTTPException(409, { message: "An account with this email already exists" });
     const [user] = await db.query<{ id: string }>(
-      `INSERT INTO users (email, password_hash, name) VALUES ($1, $2, $3) RETURNING ${USER_COLUMNS}`,
-      [email, await hashPassword(password), name],
+      `INSERT INTO users (email, password_hash, name, language) VALUES ($1, $2, $3, $4) RETURNING ${USER_COLUMNS}`,
+      [email, await hashPassword(password), name, language],
     );
     return c.json({ token: await signToken(user!.id), user }, 201);
   });
@@ -285,8 +286,11 @@ export function createApp(db: Db) {
   const load = (userId: string, today: string) => loadProgress(db, userId, today);
 
   async function profile(userId: string) {
-    const [u] = await db.query<{ name: string; season: Season }>(`SELECT name, season FROM users WHERE id = $1`, [userId]);
-    return u!;
+    const [u] = await db.query<{ name: string; season: Season; language: string }>(
+      `SELECT name, season, language FROM users WHERE id = $1`,
+      [userId],
+    );
+    return { ...u!, lang: asLang(u!.language) as Lang };
   }
 
   authed.get("/today", async (c) => {
@@ -306,8 +310,8 @@ export function createApp(db: Db) {
       }));
     return c.json({
       date: today,
-      verse: verseOfDay(today),
-      greeting: pickMessage("morning", { name: me.name, seed: Number(today.replaceAll("-", "")) }),
+      verse: verseOfDay(today, me.lang),
+      greeting: pickMessage("morning", { lang: me.lang, name: me.name, seed: Number(today.replaceAll("-", "")) }),
       habits: items,
     });
   });
@@ -334,12 +338,12 @@ export function createApp(db: Db) {
     const me = await profile(userId);
     const message =
       input.status === "slipped"
-        ? pickMessage("slip", { name: me.name })
-        : pickMessage("checkin", { name: me.name, category: habit.category_id });
+        ? pickMessage("slip", { lang: me.lang, name: me.name })
+        : pickMessage("checkin", { lang: me.lang, name: me.name, category: habit.category_id });
     const milestone = streak > before && MILESTONES.includes(streak) ? streak : null;
     return c.json({
       check_in: checkIn,
-      message: milestone ? pickMessage("milestone", { name: me.name }) : message,
+      message: milestone ? pickMessage("milestone", { lang: me.lang, name: me.name }) : message,
       streak,
       milestone,
     });
@@ -410,7 +414,11 @@ export function createApp(db: Db) {
   });
 
   // ---------- content (used by the app to schedule local notifications) ----------
-  authed.get("/content", (c) => c.json({ messages: MESSAGES, verses: VERSES }));
+  authed.get("/content", async (c) => {
+    const { lang } = await profile(c.get("userId"));
+    const { messages, verses } = content(lang);
+    return c.json({ language: lang, messages, verses });
+  });
 
   authed.route("/", createCircle(db));
 

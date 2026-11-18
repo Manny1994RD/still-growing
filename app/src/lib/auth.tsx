@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { currentLang } from "@/i18n";
 import { api, server, session } from "./api";
 import { cancelAllReminders } from "./notifications";
 import type { User } from "./types";
@@ -51,7 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(r.user);
       },
       async signUp(email, password, name) {
-        const r = await api.register(email.trim(), password, name.trim());
+        const r = await api.register(email.trim(), password, name.trim(), currentLang());
         await session.set(r.token);
         setUser(r.user);
       },

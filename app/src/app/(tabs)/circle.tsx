@@ -1,9 +1,10 @@
 import { useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import { Alert, Platform, Pressable, Share, Switch, View } from "react-native";
+import { useI18n } from "@/i18n";
+import type { Dict } from "@/i18n/en";
 import { api } from "@/lib/api";
 import { localDate } from "@/lib/date";
-import { SEASON_COPY } from "@/lib/suggestions";
 import type { Blessing, CircleResponse, Friend, InboxItem } from "@/lib/types";
 import {
   Button,
@@ -28,23 +29,23 @@ import {
 import { radius, serif, space, useTheme } from "@/ui/theme";
 import { useToast } from "@/ui/toast";
 
-function ask(title: string, message: string, action: string): Promise<boolean> {
+function ask(title: string, message: string, action: string, cancel: string): Promise<boolean> {
   if (Platform.OS === "web") return Promise.resolve(globalThis.confirm?.(`${title}\n\n${message}`) ?? false);
   return new Promise((resolve) =>
     Alert.alert(title, message, [
-      { text: "Cancel", style: "cancel", onPress: () => resolve(false) },
+      { text: cancel, style: "cancel", onPress: () => resolve(false) },
       { text: action, style: "destructive", onPress: () => resolve(true) },
     ]),
   );
 }
 
-function timeAgo(iso: string): string {
+function timeAgo(iso: string, s: Dict): string {
   const m = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
-  if (m < 1) return "just now";
-  if (m < 60) return `${m}m ago`;
+  if (m < 1) return s.circle.justNow;
+  if (m < 60) return s.circle.minutesAgo(m);
   const h = Math.round(m / 60);
-  if (h < 24) return `${h}h ago`;
-  return `${Math.round(h / 24)}d ago`;
+  if (h < 24) return s.circle.hoursAgo(h);
+  return s.circle.daysAgo(Math.round(h / 24));
 }
 
 function Avatar({ name, size = 44 }: { name: string; size?: number }) {
@@ -61,6 +62,8 @@ function Avatar({ name, size = 44 }: { name: string; size?: number }) {
 export default function Circle() {
   const { c } = useTheme();
   const toast = useToast();
+  const { s } = useI18n();
+  const t = s.circle;
   const [data, setData] = useState<CircleResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -105,29 +108,29 @@ export default function Circle() {
   if (data && !data.settings.circle_enabled) {
     return (
       <Screen>
-        <Header eyebrow="Friends-only" title="Circle" />
+        <Header eyebrow={t.eyebrow} title={t.title} />
         <Txt muted style={{ fontSize: 18, lineHeight: 26 }}>
-          Invite a few people you trust. Share your growth, never your private habits, and carry each other in prayer.
+          {t.intro}
         </Txt>
         <Spacer h={space.xl} />
         {[
-          ["heart", "Send a prayer with one tap"],
-          ["message-circle", "Encourage each other with blessings and verses"],
-          ["shield", "Only people you add. No public profiles, no comparing."],
-          ["lock", "Habit names and Freedom habits stay private"],
+          ["heart", t.point1],
+          ["message-circle", t.point2],
+          ["shield", t.point3],
+          ["lock", t.point4],
         ].map(([icon, text]) => (
-          <Row key={text} gap={space.lg} style={{ paddingVertical: space.md }}>
+          <Row key={icon} gap={space.lg} style={{ paddingVertical: space.md }}>
             <Icon name={icon!} />
             <Txt style={{ flex: 1 }}>{text}</Txt>
           </Row>
         ))}
         <Spacer h={space.xl} />
         <Card>
-          <Verse text="Bear one another's burdens, and so fulfill the law of Christ." refText="Galatians 6:2" />
+          <Verse text={t.verse} refText={t.verseRef} />
         </Card>
         <Spacer h={space.xl} />
         <ErrorText>{error}</ErrorText>
-        <Button title="Turn on my Circle" onPress={enable} loading={busy} />
+        <Button title={t.turnOn} onPress={enable} loading={busy} />
       </Screen>
     );
   }
@@ -138,12 +141,12 @@ export default function Circle() {
   return (
     <Screen>
       <Header
-        eyebrow={data?.settings.friend_code ? `Your code · ${data.settings.friend_code}` : "Friends-only"}
-        title="Circle"
+        eyebrow={data?.settings.friend_code ? t.yourCode(data.settings.friend_code) : t.eyebrow}
+        title={t.title}
         right={
           <Row gap={space.sm}>
-            <IconButton name="settings" label="Circle privacy" onPress={() => setPrivacyOpen(true)} />
-            <IconButton name="user-plus" label="Add a friend" onPress={() => setAddOpen(true)} />
+            <IconButton name="settings" label={t.privacy} onPress={() => setPrivacyOpen(true)} />
+            <IconButton name="user-plus" label={t.addFriend} onPress={() => setAddOpen(true)} />
           </Row>
         }
       />
@@ -151,15 +154,15 @@ export default function Circle() {
 
       {data?.incoming.length ? (
         <>
-          <SectionLabel>Requests</SectionLabel>
+          <SectionLabel>{t.requests}</SectionLabel>
           {data.incoming.map((r) => (
             <Row key={r.id} gap={space.lg} style={{ paddingVertical: space.md }}>
               <Avatar name={r.name} size={40} />
               <Txt v="heading" style={{ flex: 1 }}>
                 {r.name}
               </Txt>
-              <Button title="Accept" small onPress={() => run(() => api.acceptFriend(r.id), `${r.name} joined your circle`)} />
-              <Button title="Decline" small variant="ghost" onPress={() => run(() => api.removeFriend(r.id))} />
+              <Button title={t.accept} small onPress={() => run(() => api.acceptFriend(r.id), t.joined(r.name))} />
+              <Button title={t.decline} small variant="ghost" onPress={() => run(() => api.removeFriend(r.id))} />
             </Row>
           ))}
         </>
@@ -167,16 +170,16 @@ export default function Circle() {
 
       {data?.inbox.length ? (
         <>
-          <SectionLabel>For you</SectionLabel>
+          <SectionLabel>{t.forYou}</SectionLabel>
           {data.inbox.slice(0, 6).map((m) => (
-            <InboxRow key={m.id} item={m} onReport={() => run(() => api.report("encouragement", m.id), "Thanks. We'll review it.")} />
+            <InboxRow key={m.id} item={m} onReport={() => run(() => api.report("encouragement", m.id), s.common.reportThanks)} />
           ))}
         </>
       ) : null}
 
       {needs.length ? (
         <>
-          <SectionLabel>Could use encouragement</SectionLabel>
+          <SectionLabel>{t.couldUse}</SectionLabel>
           <Wrap>
             {needs.map((f) => (
               <Chip key={f.id} label={f.name} icon="heart" onPress={() => setFriend(f)} />
@@ -188,49 +191,49 @@ export default function Circle() {
       <SectionLabel
         right={
           <Pressable onPress={() => setRequestOpen(true)} hitSlop={8}>
-            <Txt v="caption">+ Ask for prayer</Txt>
+            <Txt v="caption">{t.askForPrayer}</Txt>
           </Pressable>
         }
       >
-        Prayer requests
+        {t.prayerRequests}
       </SectionLabel>
       {data?.prayer_requests.length ? (
         data.prayer_requests.map((p) => (
           <View key={p.id} style={{ paddingVertical: space.md, borderBottomWidth: 1, borderBottomColor: c.hairline }}>
             <Txt v="small" muted>
-              {p.mine ? "You" : p.name} · {timeAgo(p.created_at)}
+              {p.mine ? t.you : p.name} · {timeAgo(p.created_at, s)}
             </Txt>
             <Txt style={{ fontFamily: serif, fontSize: 17, lineHeight: 25, marginVertical: 4 }}>{p.text}</Txt>
             <Row style={{ justifyContent: "space-between" }}>
               <Txt v="small" muted>
-                {p.praying_count === 0 ? "Be the first to pray" : `${p.praying_count} praying`}
+                {p.praying_count === 0 ? t.firstToPray : t.praying(p.praying_count)}
               </Txt>
               {p.mine ? (
-                <Button title="Close" small variant="ghost" onPress={() => run(() => api.deletePrayerRequest(p.id))} />
+                <Button title={s.common.close} small variant="ghost" onPress={() => run(() => api.deletePrayerRequest(p.id))} />
               ) : p.i_prayed ? (
                 <Row gap={6}>
                   <Icon name="check" size={16} />
-                  <Txt v="small">Praying</Txt>
+                  <Txt v="small">{t.prayingDone}</Txt>
                 </Row>
               ) : (
-                <Button title="I'm praying" small icon="heart" onPress={() => run(() => api.prayFor(p.id), `${p.name} will know you're praying.`)} />
+                <Button title={t.imPraying} small icon="heart" onPress={() => run(() => api.prayFor(p.id), t.willKnowPraying(p.name))} />
               )}
             </Row>
           </View>
         ))
       ) : (
         <Txt v="small" muted>
-          No open requests. Share what's on your heart. Requests close after 7 days.
+          {t.noRequests}
         </Txt>
       )}
 
-      <SectionLabel>{`Friends${friends.length ? ` · ${friends.length}` : ""}`}</SectionLabel>
+      <SectionLabel>{`${t.friends}${friends.length ? ` · ${friends.length}` : ""}`}</SectionLabel>
       {data && friends.length === 0 && data.outgoing.length === 0 ? (
         <View style={{ alignItems: "center", gap: space.lg, paddingVertical: space.xl }}>
           <Txt muted center>
-            Your circle is empty. Invite someone you trust to grow with.
+            {t.empty}
           </Txt>
-          <Button title="Invite a friend" icon="user-plus" small variant="secondary" onPress={() => setAddOpen(true)} />
+          <Button title={t.invite} icon="user-plus" small variant="secondary" onPress={() => setAddOpen(true)} />
         </View>
       ) : null}
       {friends.map((f) => (
@@ -252,8 +255,8 @@ export default function Circle() {
             <Txt v="heading">{f.name}</Txt>
             <Txt v="small" muted numberOfLines={1}>
               {f.paused
-                ? "Circle paused"
-                : [SEASON_COPY[f.season ?? "seed"]!.title, `${f.streak ?? 0}-day streak`, f.faithfulness != null ? `${f.faithfulness}%` : null]
+                ? t.paused
+                : [s.seasons[f.season ?? "seed"]!.title, t.dayStreak(f.streak ?? 0), f.faithfulness != null ? `${f.faithfulness}%` : null]
                     .filter(Boolean)
                     .join(" · ")}
             </Txt>
@@ -261,10 +264,10 @@ export default function Circle() {
           {!f.paused ? (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={f.prayed_today ? `You prayed for ${f.name} today` : `Send a prayer to ${f.name}`}
+              accessibilityLabel={f.prayed_today ? t.prayedFor(f.name) : t.sendPrayerTo(f.name)}
               hitSlop={8}
               disabled={f.prayed_today}
-              onPress={() => run(() => api.encourage(f.id, "prayer"), `${f.name} will know you prayed.`)}
+              onPress={() => run(() => api.encourage(f.id, "prayer"), t.willKnowPrayed(f.name))}
               style={{
                 width: 40,
                 height: 40,
@@ -285,10 +288,10 @@ export default function Circle() {
           <View style={{ flex: 1 }}>
             <Txt v="heading">{r.name}</Txt>
             <Txt v="small" muted>
-              Request sent
+              {t.requestSent}
             </Txt>
           </View>
-          <Button title="Cancel" small variant="ghost" onPress={() => run(() => api.removeFriend(r.id))} />
+          <Button title={s.common.cancel} small variant="ghost" onPress={() => run(() => api.removeFriend(r.id))} />
         </Row>
       ))}
 
@@ -302,8 +305,11 @@ export default function Circle() {
 
 function InboxRow({ item: m, onReport }: { item: InboxItem; onReport: () => void }) {
   const { c } = useTheme();
+  const { s } = useI18n();
+  const t = s.circle;
+  const fromRequest = m.template_id === "request" || m.text === "is praying for your request";
   const line =
-    m.type === "prayer" ? `${m.from_name} ${m.text || "prayed for you"}` : m.type === "verse" ? `${m.from_name} sent you a verse` : `${m.from_name}`;
+    m.type === "prayer" ? (fromRequest ? t.prayingForRequest(m.from_name) : t.prayedForYou(m.from_name)) : m.type === "verse" ? t.sentVerse(m.from_name) : m.from_name;
   return (
     <Pressable
       onLongPress={onReport}
@@ -312,14 +318,14 @@ function InboxRow({ item: m, onReport }: { item: InboxItem; onReport: () => void
       <View style={{ width: 8, paddingTop: 8 }}>{!m.read ? <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: c.ink }} /> : null}</View>
       <View style={{ flex: 1, gap: 2 }}>
         <Row style={{ justifyContent: "space-between" }}>
-          <Row gap={6}>
+          <Row gap={6} style={{ flex: 1 }}>
             <Icon name={m.type === "prayer" ? "heart" : m.type === "verse" ? "book-open" : "message-circle"} size={14} />
-            <Txt v="heading" style={{ fontSize: 15 }}>
+            <Txt v="heading" style={{ fontSize: 15, flex: 1 }} numberOfLines={1}>
               {line}
             </Txt>
           </Row>
           <Txt v="small" muted>
-            {timeAgo(m.created_at)}
+            {timeAgo(m.created_at, s)}
           </Txt>
         </Row>
         {m.type !== "prayer" && m.text ? (
@@ -334,6 +340,8 @@ function InboxRow({ item: m, onReport }: { item: InboxItem; onReport: () => void
 
 function AddFriendSheet({ visible, code, onClose, onDone }: { visible: boolean; code: string | null; onClose: () => void; onDone: () => void }) {
   const toast = useToast();
+  const { s } = useI18n();
+  const t = s.circle;
   const [value, setValue] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -345,7 +353,7 @@ function AddFriendSheet({ visible, code, onClose, onDone }: { visible: boolean; 
       const r = await api.addFriend(value);
       setValue("");
       onClose();
-      toast({ text: r.status === "accepted" ? `${r.friend.name} joined your circle.` : `Request sent to ${r.friend.name}.` });
+      toast({ text: r.status === "accepted" ? t.joined(r.friend.name) : t.requestSentTo(r.friend.name) });
       onDone();
     } catch (e) {
       setError((e as Error).message);
@@ -355,33 +363,29 @@ function AddFriendSheet({ visible, code, onClose, onDone }: { visible: boolean; 
   }
 
   return (
-    <Sheet visible={visible} onClose={onClose} title="Add a friend">
+    <Sheet visible={visible} onClose={onClose} title={t.addFriend}>
       {code ? (
         <Card style={{ alignItems: "center", marginBottom: space.lg }}>
           <Txt v="caption" muted>
-            Your code
+            {t.yourCodeLabel}
           </Txt>
           <Txt v="title" style={{ letterSpacing: 3, marginVertical: space.sm }}>
             {code}
           </Txt>
-          <Button
-            title="Share invite"
-            icon="share"
-            small
-            variant="ghost"
-            onPress={() => Share.share({ message: `Grow with me on Still Growing. Add me with my code: ${code}` })}
-          />
+          <Button title={t.shareInvite} icon="share" small variant="ghost" onPress={() => Share.share({ message: t.inviteMessage(code) })} />
         </Card>
       ) : null}
-      <Field label="Their code" value={value} onChangeText={setValue} autoCapitalize="characters" placeholder="ABCD-EFGH" maxLength={12} onSubmitEditing={add} />
+      <Field label={t.theirCode} value={value} onChangeText={setValue} autoCapitalize="characters" placeholder="ABCD-EFGH" maxLength={12} onSubmitEditing={add} />
       <ErrorText>{error}</ErrorText>
-      <Button title="Send request" onPress={add} loading={busy} disabled={value.replace(/[^a-z0-9]/gi, "").length < 8} />
+      <Button title={t.sendRequest} onPress={add} loading={busy} disabled={value.replace(/[^a-z0-9]/gi, "").length < 8} />
     </Sheet>
   );
 }
 
 function PrayerRequestSheet({ visible, onClose, onDone }: { visible: boolean; onClose: () => void; onDone: () => void }) {
   const toast = useToast();
+  const { s } = useI18n();
+  const t = s.circle;
   const [text, setText] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -392,7 +396,7 @@ function PrayerRequestSheet({ visible, onClose, onDone }: { visible: boolean; on
       await api.createPrayerRequest(text);
       setText("");
       onClose();
-      toast({ text: "Your circle can see your request.", ref: "Philippians 4:6" });
+      toast({ text: t.askShared, ref: t.askRef });
       onDone();
     } catch (e) {
       setError((e as Error).message);
@@ -401,12 +405,12 @@ function PrayerRequestSheet({ visible, onClose, onDone }: { visible: boolean; on
     }
   }
   return (
-    <Sheet visible={visible} onClose={onClose} title="Ask for prayer">
-      <Txt muted>Share only what you're comfortable with. Your friends will see it for 7 days.</Txt>
+    <Sheet visible={visible} onClose={onClose} title={t.askTitle}>
+      <Txt muted>{t.askIntro}</Txt>
       <Spacer h={space.lg} />
-      <Field value={text} onChangeText={setText} placeholder="Pray for my consistency this week…" multiline maxLength={280} style={{ minHeight: 100 }} />
+      <Field value={text} onChangeText={setText} placeholder={t.askPh} multiline maxLength={280} style={{ minHeight: 100 }} />
       <ErrorText>{error}</ErrorText>
-      <Button title="Share with my circle" onPress={save} loading={busy} disabled={!text.trim()} />
+      <Button title={t.askShare} onPress={save} loading={busy} disabled={!text.trim()} />
     </Sheet>
   );
 }
@@ -423,6 +427,8 @@ function PrivacySheet({
   onDone: () => void;
 }) {
   const { c } = useTheme();
+  const { s } = useI18n();
+  const t = s.circle;
   const set = async (patch: Partial<CircleResponse["settings"]>) => {
     await api.circleSettings(patch).catch(() => {});
     onDone();
@@ -441,31 +447,33 @@ function PrivacySheet({
     </Row>
   );
   return (
-    <Sheet visible={visible} onClose={onClose} title="Circle privacy">
+    <Sheet visible={visible} onClose={onClose} title={t.privacy}>
       <Txt v="small" muted style={{ marginBottom: space.md }}>
-        Friends always see your growth season, streak and faithfulness. They never see habit names, reflections or Freedom habits.
+        {t.privacyNote}
       </Txt>
-      {toggle("Show my identity statement", "“In Christ, I'm becoming someone who…”", settings.share_identity, "share_identity")}
-      {toggle("Let my circle know when I'm quiet", "After 3 days without a check-in, friends get a gentle nudge to encourage you", settings.share_struggling, "share_struggling")}
+      {toggle(t.showIdentity, t.showIdentityHint, settings.share_identity, "share_identity")}
+      {toggle(t.quietNudge, t.quietNudgeHint, settings.share_struggling, "share_struggling")}
       <Txt v="caption" muted style={{ marginTop: space.lg, marginBottom: space.sm }}>
-        Messages I receive
+        {t.messagesIReceive}
       </Txt>
       <Segmented
         value={settings.allow_messages}
         onChange={(v) => set({ allow_messages: v })}
         options={[
-          { value: "everyone", label: "Blessings + notes" },
-          { value: "templates", label: "Blessings only" },
+          { value: "everyone", label: t.blessingsAndNotes },
+          { value: "templates", label: t.blessingsOnly },
         ]}
       />
       <Spacer h={space.xl} />
-      <Button title="Pause my Circle" variant="ghost" onPress={() => set({ circle_enabled: false }).then(onClose)} />
+      <Button title={t.pause} variant="ghost" onPress={() => set({ circle_enabled: false }).then(onClose)} />
     </Sheet>
   );
 }
 
 function FriendSheet({ friend: f, onClose, onChanged }: { friend: Friend | null; onClose: () => void; onChanged: () => void }) {
   const toast = useToast();
+  const { s, category } = useI18n();
+  const t = s.circle;
   const [mode, setMode] = useState<"main" | "blessing" | "verse" | "note">("main");
   const [lists, setLists] = useState<{ blessings: Blessing[]; verses: Blessing[] } | null>(null);
   const [note, setNote] = useState("");
@@ -480,7 +488,8 @@ function FriendSheet({ friend: f, onClose, onChanged }: { friend: Friend | null;
 
   async function open(m: "blessing" | "verse" | "note") {
     setMode(m);
-    if (!lists) setLists(await api.blessings().catch(() => ({ blessings: [], verses: [] })));
+    // Reload each time so the list follows the current language.
+    setLists(await api.blessings().catch(() => ({ blessings: [], verses: [] })));
   }
 
   async function send(type: "prayer" | "message" | "verse", opts: { template_id?: string; text?: string } = {}) {
@@ -489,7 +498,7 @@ function FriendSheet({ friend: f, onClose, onChanged }: { friend: Friend | null;
     try {
       const r = await api.encourage(f.id, type, opts);
       close();
-      toast({ text: type === "prayer" ? (r.status === "already_prayed" ? `You already prayed for ${f.name} today.` : `${f.name} will know you prayed.`) : `Sent to ${f.name}.` });
+      toast({ text: type === "prayer" ? (r.status === "already_prayed" ? t.alreadyPrayed(f.name) : t.willKnowPrayed(f.name)) : t.sentTo(f.name) });
       onChanged();
     } catch (e) {
       setError((e as Error).message);
@@ -499,9 +508,10 @@ function FriendSheet({ friend: f, onClose, onChanged }: { friend: Friend | null;
   async function remove(kind: "remove" | "block") {
     if (!f) return;
     const ok = await ask(
-      kind === "remove" ? `Remove ${f.name}?` : `Block ${f.name}?`,
-      kind === "remove" ? "You can add each other again later with your codes." : "They won't be able to see you, message you or add you again.",
-      kind === "remove" ? "Remove" : "Block",
+      kind === "remove" ? t.removeTitle(f.name) : t.blockTitle(f.name),
+      kind === "remove" ? t.removeBody : t.blockBody,
+      kind === "remove" ? s.common.remove : s.common.block,
+      s.common.cancel,
     );
     if (!ok) return;
     try {
@@ -515,7 +525,7 @@ function FriendSheet({ friend: f, onClose, onChanged }: { friend: Friend | null;
   }
 
   if (!f) return <Sheet visible={false} onClose={close}>{null}</Sheet>;
-  const season = SEASON_COPY[f.season ?? "seed"]!;
+  const season = s.seasons[f.season ?? "seed"]!;
 
   return (
     <Sheet visible onClose={close} title={f.name}>
@@ -528,9 +538,9 @@ function FriendSheet({ friend: f, onClose, onChanged }: { friend: Friend | null;
               </Txt>
               <Row gap={space.md} style={{ marginVertical: space.lg }}>
                 {[
-                  [`${f.faithfulness ?? "—"}${f.faithfulness != null ? "%" : ""}`, "faithful"],
-                  [`${f.streak ?? 0}`, "day streak"],
-                  [`${f.days_showed_up ?? 0}`, "days showed up"],
+                  [`${f.faithfulness ?? "—"}${f.faithfulness != null ? "%" : ""}`, t.faithful],
+                  [`${f.streak ?? 0}`, t.dayStreakLabel],
+                  [`${f.days_showed_up ?? 0}`, t.daysShowedUp],
                 ].map(([v, l]) => (
                   <View key={l} style={{ flex: 1 }}>
                     <Txt v="title">{v}</Txt>
@@ -542,34 +552,32 @@ function FriendSheet({ friend: f, onClose, onChanged }: { friend: Friend | null;
               </Row>
               {f.areas?.length ? (
                 <Txt v="small" muted style={{ marginBottom: space.sm }}>
-                  Growing in {f.areas.map((a) => a.name).join(", ")}
+                  {t.growingIn(f.areas.map((a) => category(a.id, a.name)).join(", "))}
                 </Txt>
               ) : null}
               {f.identity_statement ? (
-                <Txt style={{ fontFamily: serif, fontStyle: "italic", marginBottom: space.sm }}>
-                  “Becoming someone who {f.identity_statement}”
-                </Txt>
+                <Txt style={{ fontFamily: serif, fontStyle: "italic", marginBottom: space.sm }}>{t.becomingQuote(f.identity_statement)}</Txt>
               ) : null}
               <ErrorText>{error}</ErrorText>
-              <SheetAction icon="heart" label={f.prayed_today ? "You prayed today" : "Send a prayer"} onPress={() => send("prayer")} />
-              <SheetAction icon="gift" label="Send a blessing" onPress={() => open("blessing")} />
-              <SheetAction icon="book-open" label="Send a verse" onPress={() => open("verse")} />
-              {f.accepts_custom ? <SheetAction icon="edit-3" label="Write a note" onPress={() => open("note")} /> : null}
+              <SheetAction icon="heart" label={f.prayed_today ? t.youPrayedToday : t.sendPrayer} onPress={() => send("prayer")} />
+              <SheetAction icon="gift" label={t.sendBlessing} onPress={() => open("blessing")} />
+              <SheetAction icon="book-open" label={t.sendVerse} onPress={() => open("verse")} />
+              {f.accepts_custom ? <SheetAction icon="edit-3" label={t.writeNote} onPress={() => open("note")} /> : null}
             </>
           ) : (
-            <Txt muted>{f.name} has paused their circle for now.</Txt>
+            <Txt muted>{t.pausedLong(f.name)}</Txt>
           )}
           <Spacer h={space.sm} />
           <Row gap={space.sm} style={{ justifyContent: "center" }}>
-            <Button title="Remove" small variant="ghost" onPress={() => remove("remove")} />
-            <Button title="Block" small variant="ghost" onPress={() => remove("block")} />
+            <Button title={s.common.remove} small variant="ghost" onPress={() => remove("remove")} />
+            <Button title={s.common.block} small variant="ghost" onPress={() => remove("block")} />
             <Button
-              title="Report"
+              title={s.common.report}
               small
               variant="danger"
               onPress={async () => {
                 await api.report("user", f.id).catch(() => {});
-                toast({ text: "Thanks. We'll review it." });
+                toast({ text: s.common.reportThanks });
               }}
             />
           </Row>
@@ -588,16 +596,16 @@ function FriendSheet({ friend: f, onClose, onChanged }: { friend: Friend | null;
             </Pressable>
           ))}
           <ErrorText>{error}</ErrorText>
-          <Button title="Back" variant="ghost" onPress={() => setMode("main")} />
+          <Button title={s.common.back} variant="ghost" onPress={() => setMode("main")} />
         </View>
       ) : null}
 
       {mode === "note" ? (
         <>
-          <Field value={note} onChangeText={setNote} placeholder={`Write something kind to ${f.name}…`} multiline maxLength={200} style={{ minHeight: 90 }} />
+          <Field value={note} onChangeText={setNote} placeholder={t.notePh(f.name)} multiline maxLength={200} style={{ minHeight: 90 }} />
           <ErrorText>{error}</ErrorText>
-          <Button title="Send" onPress={() => send("message", { text: note })} disabled={!note.trim()} />
-          <Button title="Back" variant="ghost" onPress={() => setMode("main")} />
+          <Button title={s.common.send} onPress={() => send("message", { text: note })} disabled={!note.trim()} />
+          <Button title={s.common.back} variant="ghost" onPress={() => setMode("main")} />
         </>
       ) : null}
     </Sheet>
