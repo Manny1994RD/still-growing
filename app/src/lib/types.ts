@@ -37,13 +37,23 @@ export interface Habit {
   archived: boolean;
   sort: number;
   start_date: string;
+  end_date: string | null;
+  reminders: string[];
+  emoji: string;
+  color: string;
+  why: string;
+  part_of_day: PartOfDay;
+  challenge_key: string | null;
 }
+
+export type PartOfDay = "any" | "morning" | "afternoon" | "evening";
 
 export interface CheckIn {
   habit_id: string;
   date: string;
   value: number;
   status: "done" | "rest" | "slipped";
+  note?: string;
 }
 
 export interface Message {
@@ -86,6 +96,11 @@ export interface CheckInResponse {
   message: Message;
   streak: number;
   milestone: number | null;
+  perfect_day?: boolean;
+  achievements?: string[];
+  rewards?: { id: string; title: string }[];
+  /** Saved on the device while offline; will sync later. */
+  queued?: boolean;
 }
 
 export interface Stats {
@@ -98,7 +113,14 @@ export interface Stats {
   history: { date: string; due: number; kept: number }[];
 }
 
-export type HabitInput = Omit<Habit, "id" | "archived" | "sort" | "start_date"> & { start_date?: string };
+export type HabitInput = Omit<Habit, "id" | "archived" | "sort" | "start_date" | "end_date" | "challenge_key" | "reminders" | "emoji" | "color" | "why" | "part_of_day"> & {
+  start_date?: string;
+  reminders?: string[];
+  emoji?: string;
+  color?: string;
+  why?: string;
+  part_of_day?: PartOfDay;
+};
 
 export interface CircleSettings {
   friend_code: string | null;
@@ -155,10 +177,55 @@ export interface CircleResponse {
   prayer_requests: PrayerRequest[];
   inbox: InboxItem[];
   unread: number;
+  milestones?: { user_id: string; name: string; key: string; unlocked_at: string; celebrated: boolean }[];
 }
 
 export interface Blessing {
   id: string;
   text: string;
   ref?: string;
+}
+
+export interface WeekSummary {
+  start: string;
+  end: string;
+  days_showed_up: number;
+  completions: number;
+  perfect_days: number;
+  faithfulness: number | null;
+  top: { id: string; name: string; emoji: string; count: number }[];
+}
+
+export interface Recap {
+  this_week: WeekSummary;
+  last_week: WeekSummary;
+  verse: Verse;
+}
+
+export interface Achievement {
+  key: string;
+  unlocked_at: string | null;
+}
+
+export interface RewardGoal {
+  id: string;
+  title: string;
+  habit_id: string | null;
+  habit_name: string | null;
+  target_days: number;
+  start_date: string;
+  achieved_at: string | null;
+  progress: number;
+}
+
+export interface ChallengeInfo {
+  key: string;
+  emoji: string;
+  days: number;
+  title: string;
+  description: string;
+  habits: { name: string; emoji: string; type: HabitType; target: number; unit: string }[];
+  joined: { start_date: string; end_date: string; day: number; faithfulness: number | null } | null;
+  completed_times: number;
+  friends: string[];
 }

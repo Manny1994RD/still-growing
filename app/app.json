@@ -3,7 +3,7 @@
     "name": "Still Growing",
     "slug": "still-growing",
     "scheme": "stillgrowing",
-    "version": "0.4.0",
+    "version": "0.5.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -64,6 +64,12 @@
             "image": "./assets/splash-icon.png",
             "backgroundColor": "#000000"
           }
+        }
+      ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Still Growing uses Face ID to keep your habits private."
         }
       ]
     ],

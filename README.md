@@ -20,6 +20,11 @@ One codebase ships to **Android (APK/AAB)**, **iPhone (IPA)** and the **web**. A
 - **Evening reflection:** three private prompts to end the day with God.
 - **Share your growth** without revealing habit names. Freedom habits are never shared.
 - **Friends Circle** (optional, off by default): add friends by code, see each other's growth (season, streak, faithfulness, areas), send a prayer in one tap, blessings, verses and short notes, and share prayer requests. Habit names, reflections and Freedom habits are never shown. Includes a message filter, block, report, a "blessings only" setting and a gentle "could use encouragement" nudge that users opt into.
+- **Easy logging:** works offline (syncs later), catch up on the last 7 days, undo, swipe right to complete, type an exact amount, built-in timer, notes on check-ins, and a **Done ✓** button right on reminders.
+- **Rewards:** celebration burst, "Perfect day", a plant that grows with you, 10 faith-themed badges, a weekly recap, and personal reward goals ("At 30 days, new running shoes").
+- **Personal:** emoji and color per habit, "your why" shown with reminders, several reminders per habit, morning/afternoon/evening groups, reordering.
+- **Guided challenges:** 21 Days of Prayer, 40 Days in the Word, Daniel Fast, 30 Days of Gratitude, Honor Your Body. Join alone or see who in your Circle is doing it, and celebrate friends' badges.
+- **Privacy:** optional Face ID / fingerprint lock, and "forgot password" with a 6-digit code.
 - **Self-hosting friendly:** the server address can be changed inside the app, so one Android/iPhone build works with your own server.
 - **English and Spanish:** each person picks their language (it follows the phone by default). Messages, verses (WEB / Reina-Valera 1909), blessings and notifications all switch, and blessings from friends show in the reader's language.
 - **Clean monochrome design** with automatic light and dark mode.
@@ -77,6 +82,12 @@ Run `docker compose up -d --build` on the server, then choose how phones reach i
 3. Put the token in `.env` as `CLOUDFLARE_TUNNEL_TOKEN=...`
 4. Run `docker compose --profile tunnel up -d`
 5. In the app, tap **Server · Change** on the sign-in screen and enter `https://growing.yourdomain.com/api`, or bake it into the builds (see below).
+
+**Password resets:** with `SMTP_URL` set in `.env`, codes are emailed. Without it, find the code in `docker compose logs api`, or set a password directly:
+
+```bash
+docker compose exec api node dist/cli/set-password.js someone@example.com NewPassword123
+```
 
 Back up your data with:
 

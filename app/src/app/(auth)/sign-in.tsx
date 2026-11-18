@@ -36,6 +36,8 @@ export default function SignIn() {
       <Field label={s.auth.password} value={password} onChangeText={setPassword} secureTextEntry autoComplete="current-password" placeholder="••••••••" onSubmitEditing={submit} />
       <ErrorText>{error}</ErrorText>
       <Button title={s.auth.signIn} onPress={submit} loading={busy} disabled={!email || !password} />
+      <Spacer h={space.sm} />
+      <Button title={s.v5.forgot} variant="ghost" small onPress={() => router.push("/forgot")} />
       <Spacer h={space.md} />
       <Button title={s.auth.createAnAccount} variant="ghost" onPress={() => router.replace("/sign-up")} />
       <Spacer h={space.lg} />

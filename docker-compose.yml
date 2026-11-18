@@ -32,6 +32,9 @@ services:
       DATABASE_URL: postgres://still_growing:${POSTGRES_PASSWORD}@db:5432/still_growing
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env (32+ characters)}
       CORS_ORIGIN: ${CORS_ORIGIN:-*}
+      # Optional: send password-reset codes by email (otherwise they appear in `docker compose logs api`)
+      SMTP_URL: ${SMTP_URL:-}
+      SMTP_FROM: ${SMTP_FROM:-}
     # Direct API port (optional; the web container already proxies /api).
     ports:
       - "${API_PORT:-4000}:4000"

@@ -4,7 +4,7 @@ import { AppState } from "react-native";
 import { useI18n } from "@/i18n";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import { scheduleWeek } from "@/lib/notifications";
+import { listenForDoneActions, scheduleWeek } from "@/lib/notifications";
 import { Icon } from "@/ui/components";
 import { useLayout, useTheme } from "@/ui/theme";
 
@@ -21,7 +21,11 @@ function useReminderSync() {
     };
     void sync();
     const sub = AppState.addEventListener("change", (st) => st === "active" && void sync());
-    return () => sub.remove();
+    const stopDone = listenForDoneActions();
+    return () => {
+      sub.remove();
+      stopDone();
+    };
   }, [user]);
 }
 

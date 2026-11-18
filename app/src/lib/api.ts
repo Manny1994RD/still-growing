@@ -3,6 +3,10 @@ import { Platform } from "react-native";
 import { dict, translateServerError } from "@/i18n";
 import { secure } from "./storage";
 import type {
+  Achievement,
+  ChallengeInfo,
+  Recap,
+  RewardGoal,
   Blessing,
   Category,
   CircleResponse,
@@ -146,14 +150,27 @@ export const api = {
   deleteHabit: (id: string) => request<void>("DELETE", `/habits/${id}`),
 
   today: (date: string) => request<TodayResponse>("GET", `/today?date=${date}`),
-  checkIn: (habit_id: string, date: string, value: number, status: "done" | "rest" | "slipped" = "done") =>
-    request<CheckInResponse>("PUT", "/checkins", { habit_id, date, value, status }),
+  checkIn: (habit_id: string, date: string, value: number, status: "done" | "rest" | "slipped" = "done", note?: string) =>
+    request<CheckInResponse>("PUT", "/checkins", { habit_id, date, value, status, ...(note !== undefined ? { note } : {}) }),
   clearCheckIn: (habitId: string, date: string) => request<void>("DELETE", `/checkins/${habitId}/${date}`),
 
   stats: (today: string) => request<Stats>("GET", `/stats?today=${today}`),
   reflect: (date: string, type: "evening" | "ping" | "missed_reason", answers: Record<string, string>) =>
     request("POST", "/reflections", { date, type, answers }),
   content: () => request<{ language: "en" | "es"; messages: Message[]; verses: Verse[] }>("GET", "/content"),
+
+  forgotPassword: (email: string) => request<{ ok: true }>("POST", "/auth/forgot", { email }),
+  resetPassword: (email: string, code: string, password: string) =>
+    request<{ token: string; user: User }>("POST", "/auth/reset", { email, code, password }),
+  reorderHabits: (ids: string[]) => request<void>("POST", "/habits/order", { ids }),
+  recap: (today: string) => request<Recap>("GET", `/recap?today=${today}`),
+  achievements: () => request<{ achievements: Achievement[] }>("GET", "/achievements"),
+  rewards: (today: string) => request<{ rewards: RewardGoal[] }>("GET", `/rewards?today=${today}`),
+  createReward: (r: { title: string; target_days: number; habit_id: string | null }) => request("POST", "/rewards", r),
+  deleteReward: (id: string) => request<void>("DELETE", `/rewards/${id}`),
+  challenges: (today: string) => request<{ challenges: ChallengeInfo[] }>("GET", `/challenges?today=${today}`),
+  joinChallenge: (key: string, start_date: string) => request("POST", `/challenges/${key}/join`, { start_date }),
+  leaveChallenge: (key: string) => request<void>("DELETE", `/challenges/${key}`),
 
   // Friends Circle
   circle: (today: string) => request<CircleResponse>("GET", `/circle?today=${today}`),

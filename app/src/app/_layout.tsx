@@ -3,9 +3,11 @@ import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { I18nProvider } from "@/i18n";
 import { AuthProvider, useAuth } from "@/lib/auth";
+import { AppLockProvider } from "@/lib/lock";
 import { Loading } from "@/ui/components";
 import { LanguageSync } from "@/ui/LanguageToggle";
 import { useTheme } from "@/ui/theme";
+import { BurstProvider } from "@/ui/celebrate";
 import { ToastProvider } from "@/ui/toast";
 
 function RootNavigator() {
@@ -31,6 +33,7 @@ function RootNavigator() {
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="habit/new" options={{ presentation: "modal" }} />
           <Stack.Screen name="habit/[id]" options={{ presentation: "modal" }} />
+          <Stack.Screen name="challenges" options={{ presentation: "modal" }} />
         </Stack.Protected>
       </Stack>
     </>
@@ -43,7 +46,11 @@ export default function RootLayout() {
       <I18nProvider>
         <AuthProvider>
           <ToastProvider>
-            <RootNavigator />
+            <BurstProvider>
+              <AppLockProvider>
+                <RootNavigator />
+              </AppLockProvider>
+            </BurstProvider>
           </ToastProvider>
         </AuthProvider>
       </I18nProvider>

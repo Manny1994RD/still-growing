@@ -7,6 +7,8 @@ interface ToastData {
   text: string;
   ref?: string;
   title?: string;
+  /** Optional button, e.g. "Undo". */
+  action?: { label: string; onPress: () => void };
 }
 
 const ToastContext = createContext<(t: ToastData) => void>(() => {});
@@ -29,7 +31,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       setToast(t);
       anim.setValue(0);
       Animated.spring(anim, { toValue: 1, useNativeDriver: true, damping: 18, stiffness: 180 }).start();
-      timer.current = setTimeout(hide, t.title ? 5000 : 3800);
+      timer.current = setTimeout(hide, t.title || t.action ? 5500 : 3800);
     },
     [anim, hide],
   );
@@ -50,16 +52,31 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             <Pressable
               onPress={hide}
               accessibilityRole="alert"
-              style={{ backgroundColor: c.ink, borderRadius: radius.lg, padding: space.lg + 2 }}
+              style={{ backgroundColor: c.ink, borderRadius: radius.lg, padding: space.lg + 2, flexDirection: "row", alignItems: "center", gap: space.lg }}
             >
-              {toast.title ? (
-                <Text style={{ color: c.invertInk, fontSize: 13, fontWeight: "700", letterSpacing: 1, marginBottom: 6 }}>
-                  {toast.title.toUpperCase()}
-                </Text>
-              ) : null}
-              <Text style={{ color: c.invertInk, fontFamily: serif, fontSize: 16, lineHeight: 23 }}>{toast.text}</Text>
-              {toast.ref ? (
-                <Text style={{ color: c.invertInk, opacity: 0.6, fontSize: 12, marginTop: 6, letterSpacing: 0.5 }}>{toast.ref}</Text>
+              <View style={{ flex: 1 }}>
+                {toast.title ? (
+                  <Text style={{ color: c.invertInk, fontSize: 13, fontWeight: "700", letterSpacing: 1, marginBottom: 6 }}>
+                    {toast.title.toUpperCase()}
+                  </Text>
+                ) : null}
+                <Text style={{ color: c.invertInk, fontFamily: serif, fontSize: 16, lineHeight: 23 }}>{toast.text}</Text>
+                {toast.ref ? (
+                  <Text style={{ color: c.invertInk, opacity: 0.6, fontSize: 12, marginTop: 6, letterSpacing: 0.5 }}>{toast.ref}</Text>
+                ) : null}
+              </View>
+              {toast.action ? (
+                <Pressable
+                  accessibilityRole="button"
+                  hitSlop={10}
+                  onPress={() => {
+                    toast.action!.onPress();
+                    hide();
+                  }}
+                  style={{ paddingVertical: 8, paddingHorizontal: 12, borderRadius: radius.pill, borderWidth: 1, borderColor: c.invertInk }}
+                >
+                  <Text style={{ color: c.invertInk, fontWeight: "700", fontSize: 14 }}>{toast.action.label}</Text>
+                </Pressable>
               ) : null}
             </Pressable>
           </Animated.View>

@@ -225,6 +225,7 @@ const BLESSINGS_EN: Blessing[] = [
   { id: "b08", text: "He who began a good work in you will finish it.", ref: "Philippians 1:6" },
   { id: "b09", text: "One step at a time. You've got this." },
   { id: "b10", text: "Rest in Him today.", ref: "Matthew 11:28" },
+  { id: "b11", text: "Celebrating with you! Keep growing. 🎉" },
 ];
 
 const BLESSINGS_ES: Blessing[] = [
@@ -238,6 +239,7 @@ const BLESSINGS_ES: Blessing[] = [
   { id: "b08", text: "El que comenzó la buena obra en ti la terminará.", ref: "Filipenses 1:6" },
   { id: "b09", text: "Un paso a la vez. Tú puedes." },
   { id: "b10", text: "Descansa en Él hoy.", ref: "Mateo 11:28" },
+  { id: "b11", text: "¡Celebro contigo! Sigue creciendo. 🎉" },
 ];
 
 const CONTENT = {

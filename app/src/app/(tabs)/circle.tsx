@@ -181,6 +181,32 @@ export default function Circle() {
         </>
       ) : null}
 
+      {data?.milestones?.length ? (
+        <>
+          <SectionLabel>{s.v5.milestones}</SectionLabel>
+          {data.milestones.map((m) => (
+            <Row key={`${m.user_id}-${m.key}`} gap={space.md} style={{ paddingVertical: space.md, borderBottomWidth: 1, borderBottomColor: c.hairline }}>
+              <Avatar name={m.name} size={36} />
+              <Txt style={{ flex: 1 }} numberOfLines={2}>
+                {s.v5.earned(m.name, s.v5.badge[m.key]?.name ?? m.key)}
+              </Txt>
+              {m.celebrated ? (
+                <Txt v="small" muted>
+                  {s.v5.celebrated}
+                </Txt>
+              ) : (
+                <Button
+                  title={s.v5.celebrate}
+                  small
+                  variant="secondary"
+                  onPress={() => run(() => api.encourage(m.user_id, "message", { template_id: "b11" }), t.sentTo(m.name))}
+                />
+              )}
+            </Row>
+          ))}
+        </>
+      ) : null}
+
       {needs.length ? (
         <>
           <SectionLabel>{t.couldUse}</SectionLabel>

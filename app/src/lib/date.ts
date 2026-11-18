@@ -40,3 +40,10 @@ export function formatTime(t: string, locale: string): string {
   d.setHours(h!, m!, 0, 0);
   return d.toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" });
 }
+
+/** Add days to a local YYYY-MM-DD date. */
+export function addDaysLocal(s: string, n: number): string {
+  const d = parseDate(s);
+  d.setDate(d.getDate() + n);
+  return localDate(d);
+}

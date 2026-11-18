@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { Alert, Platform, View } from "react-native";
+import { Alert, Platform, Switch, View } from "react-native";
 import { useI18n } from "@/i18n";
 import { api, server } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { useAppLock } from "@/lib/lock";
 import { notificationsSupported, requestPermission } from "@/lib/notifications";
 import { Button, ErrorText, Field, Header, Row, Screen, SectionLabel, Spacer, Txt } from "@/ui/components";
 import { LanguageToggle } from "@/ui/LanguageToggle";
@@ -25,6 +26,7 @@ export default function Settings() {
   const toast = useToast();
   const { s } = useI18n();
   const t = s.settings;
+  const lock = useAppLock();
   const [name, setName] = useState(user?.name ?? "");
   const [morning, setMorning] = useState(user?.morning_time ?? "07:00");
   const [evening, setEvening] = useState(user?.evening_time ?? "20:00");
@@ -91,13 +93,30 @@ export default function Settings() {
       <ErrorText>{error}</ErrorText>
       <Button title={s.common.save} onPress={save} loading={busy} />
 
+      {Platform.OS !== "web" ? (
+        <>
+          <SectionLabel>{s.v5.privacy}</SectionLabel>
+          <Row gap={space.lg}>
+            <View style={{ flex: 1 }}>
+              <Txt v="heading" style={{ fontSize: 15 }}>
+                {s.v5.lock}
+              </Txt>
+              <Txt v="small" muted>
+                {lock.available ? s.v5.lockHint : s.v5.lockUnavailable}
+              </Txt>
+            </View>
+            <Switch value={lock.enabled} disabled={!lock.available} onValueChange={(on) => void lock.setEnabled(on)} />
+          </Row>
+        </>
+      ) : null}
+
       <SectionLabel>{t.account}</SectionLabel>
       <Button title={t.signOut} variant="secondary" onPress={signOut} />
       <Spacer h={space.sm} />
       <Button title={t.deleteAccount} variant="danger" onPress={deleteAccount} />
       <Spacer h={space.xl} />
       <Txt v="small" muted center>
-        Still Growing 0.4 · {server.url}
+        Still Growing 0.5 · {server.url}
       </Txt>
     </Screen>
   );

@@ -245,7 +245,20 @@ export function createCircle(db: Db) {
     }
     const unread = inbox.filter((m) => !(m as { read: boolean }).read).length;
 
-    return c.json({ settings, friends, incoming, outgoing, prayer_requests: prayerRequests, inbox, unread });
+    // Friends' badges from the last 7 days, so the circle can celebrate together.
+    const milestones = friendIds.length
+      ? await db.query<{ user_id: string; name: string; key: string; unlocked_at: string; celebrated: boolean }>(
+          `SELECT a.user_id, u.name, a.key, a.unlocked_at,
+                  EXISTS (SELECT 1 FROM encouragements e WHERE e.from_id = $1 AND e.to_id = a.user_id
+                          AND e.template_id = 'b11' AND e.created_at >= a.unlocked_at) AS celebrated
+             FROM achievements a JOIN users u ON u.id = a.user_id
+            WHERE a.user_id = ANY($2::uuid[]) AND a.unlocked_at > now() - interval '7 days'
+            ORDER BY a.unlocked_at DESC LIMIT 20`,
+          [userId, friendIds],
+        )
+      : [];
+
+    return c.json({ settings, friends, incoming, outgoing, prayer_requests: prayerRequests, inbox, unread, milestones });
   });
 
   /** Small summary for the Today screen. */

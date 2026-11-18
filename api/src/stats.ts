@@ -13,6 +13,8 @@ export interface HabitLite {
   target: number;
   days_mask: number;
   start_date: string;
+  /** Last day for habits created by a time-limited challenge. */
+  end_date?: string | null;
 }
 
 export interface CheckInLite {
@@ -53,8 +55,11 @@ export function isKept(habit: HabitLite, c: CheckInLite | undefined): boolean {
   return c.value >= goal;
 }
 
+/** Whether a habit exists on a date (started and not yet ended). */
+export const activeOn = (h: HabitLite, d: string) => d >= h.start_date && (!h.end_date || d <= h.end_date);
+
 /** Daily habits are due on their scheduled weekdays; weekly habits are scored per week. */
-const dueOn = (h: HabitLite, d: string) => h.type !== "weekly" && d >= h.start_date && isScheduledDay(h.days_mask, d);
+export const dueOn = (h: HabitLite, d: string) => h.type !== "weekly" && activeOn(h, d) && isScheduledDay(h.days_mask, d);
 
 function weeklyDoneCount(h: HabitLite, wkStart: string, idx: Index, upTo: string): number {
   let n = 0;
@@ -77,7 +82,7 @@ function showedUp(habits: HabitLite[], idx: Index, d: string): boolean {
 }
 
 function anythingScheduled(habits: HabitLite[], d: string): boolean {
-  return habits.some((h) => d >= h.start_date && (h.type === "weekly" || isScheduledDay(h.days_mask, d)));
+  return habits.some((h) => activeOn(h, d) && (h.type === "weekly" || isScheduledDay(h.days_mask, d)));
 }
 
 /**
@@ -170,7 +175,7 @@ export function faithfulness(habits: HabitLite[], checkIns: CheckInLite[], today
   for (const h of habits) {
     if (h.type === "weekly") {
       for (let wk = weekStart(from); wk <= today; wk = addDays(wk, 7)) {
-        if (addDays(wk, 6) < h.start_date) continue;
+        if (addDays(wk, 6) < h.start_date || (h.end_date && wk > h.end_date)) continue;
         const met = weeklyDoneCount(h, wk, idx, today) >= h.target;
         const inProgress = wk === weekStart(today);
         if (inProgress && !met) continue;
