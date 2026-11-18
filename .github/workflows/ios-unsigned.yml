@@ -1,0 +1,75 @@
+name: iOS unsigned IPA (for sideloading)
+
+# Builds an unsigned .ipa on a GitHub macOS runner. Sign and install it with
+# Sideloadly or AltStore using your own Apple ID. Run it from the Actions tab
+# ("Run workflow"). The server address comes from the EXPO_PUBLIC_API_URL
+# repository secret so it never appears in code or logs.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  ipa:
+    runs-on: macos-26
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: app
+    env:
+      EXPO_PUBLIC_API_URL: ${{ secrets.EXPO_PUBLIC_API_URL }}
+      EXPO_NO_TELEMETRY: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Show Xcode version
+        run: xcodebuild -version
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate the iOS project
+        run: npx expo prebuild --platform ios --no-install --clean
+
+      - name: Install CocoaPods
+        run: cd ios && pod install
+
+      - name: Remove push entitlement (not available to free Apple IDs; local reminders still work)
+        run: |
+          for f in ios/*/*.entitlements; do
+            /usr/libexec/PlistBuddy -c "Delete :aps-environment" "$f" 2>/dev/null || true
+          done
+
+      - name: Build unsigned archive
+        run: |
+          set -o pipefail
+          WS=$(ls -d ios/*.xcworkspace | head -1)
+          NAME=$(basename "$WS" .xcworkspace)
+          echo "NAME=$NAME" >> "$GITHUB_ENV"
+          xcodebuild \
+            -workspace "$WS" \
+            -scheme "$NAME" \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -archivePath "build/$NAME.xcarchive" \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            archive | tail -50
+
+      - name: Package .ipa
+        run: |
+          mkdir -p build/Payload
+          cp -R "build/$NAME.xcarchive/Products/Applications/$NAME.app" build/Payload/
+          cd build && zip -qr StillGrowing-unsigned.ipa Payload
+          ls -lh StillGrowing-unsigned.ipa
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: StillGrowing-unsigned-ipa
+          path: app/build/StillGrowing-unsigned.ipa
+          retention-days: 30
